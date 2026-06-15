@@ -263,6 +263,120 @@
   text-align: center;
 }
 
+/* The breadcrumb bar that carries the reader back up to oranburg.law, mirroring
+   the bar the other Oranburg sites (the golem site among them) render at the top
+   of the page so this app reads as one of the family. */
+.breadcrumb-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+  padding: var(--space-xs) var(--space-md);
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-headline);
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+}
+
+.breadcrumb-bar a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.breadcrumb-bar a:hover {
+  text-decoration: underline;
+}
+
+.breadcrumb-bar__sep {
+  color: var(--muted);
+}
+
+.breadcrumb-bar__current {
+  color: var(--muted);
+}
+
+/* The shared footer, in the family style: the deep-navy band, centered links,
+   the yellow hover. It uses the same tokens as the rest of the app so it follows
+   the theme toggle. */
+.site-footer {
+  background: var(--blue-deep);
+  color: rgba(255, 255, 255, 0.75);
+  text-align: center;
+  padding: var(--space-xl) var(--space-md);
+  /* Clear the fixed bottom nav and the phone's home indicator. */
+  padding-bottom: calc(var(--space-xl) + 72px + env(safe-area-inset-bottom, 0px));
+  font-size: 0.85rem;
+  margin-top: var(--space-2xl);
+}
+
+.site-footer__inner {
+  max-width: var(--max-width);
+  margin: 0 auto;
+}
+
+.site-footer__links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-sm) var(--space-lg);
+  margin-bottom: var(--space-md);
+}
+
+.site-footer__links a {
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
+  font-family: var(--font-headline);
+  font-size: 0.9rem;
+}
+
+.site-footer__links a:hover {
+  color: var(--yellow);
+}
+
+.site-footer__note {
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+}
+
+/* A list of portions on the browse pages, large and thumb-friendly. */
+.parsha-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.parsha-list__item a {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.parsha-list__item a:hover {
+  border-color: var(--accent);
+  text-decoration: none;
+}
+
+.parsha-list__name {
+  font-family: var(--font-headline);
+  font-size: 1.1rem;
+}
+
+.parsha-list__he {
+  font-family: var(--font-hebrew);
+  font-size: 1.3rem;
+  color: var(--accent-2);
+}
+
 /* A calm card surface for panels. */
 .card {
   background: var(--bg-secondary);

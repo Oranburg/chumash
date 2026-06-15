@@ -93,6 +93,99 @@ async function getAmud(amudRef) {
   };
 }
 
+// Remove Hebrew cantillation marks (the te'amim) from a string while keeping the
+// vowel points (nikud). The te'amim occupy U+0591 to U+05AF plus U+05BD, U+05BF,
+// and U+05C0/U+05C3/U+05C5/U+05C6; the nikud (U+05B0 to U+05BC, U+05C1, U+05C2,
+// U+05C7) are kept so the word still reads with its vowels. Used to render the
+// Torah with cantillation off by default, as the reading view does.
+const TAAMIM = /[֑-ֽֿ֯׀׃ׅׄ׆]/g;
+export function stripCantillation(value) {
+  if (typeof value !== 'string') return '';
+  return value.replace(TAAMIM, '');
+}
+
+// Parse a verse-range ref like "Genesis 1:1-6:8" or "Numbers 30:2-36:13" into its
+// book name, start chapter, and start verse, so the per-verse refs of a parsha can
+// be reconstructed from the nested text the API returns. Returns null when the ref
+// is not in the expected book-chapter-verse-range form.
+function parseRangeRef(ref) {
+  // The book name may contain spaces and Roman numerals ("I Samuel 11:14-12:22").
+  const m = /^(.*?)\s+(\d+):(\d+)-(?:(\d+):)?(\d+)$/.exec(String(ref).trim());
+  if (!m) return null;
+  const [, book, startCh, startV] = m;
+  return { book, startChapter: Number(startCh), startVerse: Number(startV) };
+}
+
+// Load the verse-by-verse text of a portion's verse range, e.g. the ref a parsha
+// reading carries ("Genesis 1:1-6:8"). The texts API returns the Hebrew and the
+// English nested by chapter when the range crosses a chapter boundary, and flat
+// when it stays inside one chapter. This flattens both shapes into an ordered list
+// of verse records, each carrying the exact Sefaria ref for that one verse so the
+// reading view can address it for translation-compare and word lookup. The Hebrew
+// keeps its vowels and (here) its cantillation; the view strips the te'amim for
+// display. Returns { ref, heRef, verses:[{ ref, chapter, verse, he, en }] }.
+export async function getParshaText(rangeRef) {
+  if (!rangeRef) {
+    throw new Error('No portion reference was given to load.');
+  }
+  const url = `${API}/texts/${encodeURIComponent(rangeRef)}?context=0&commentary=0`;
+  const data = await getJson(url);
+
+  const parsed = parseRangeRef(data.ref || rangeRef);
+  const book = parsed ? parsed.book : String(rangeRef).replace(/\s+\d.*$/, '');
+  const startChapter = parsed ? parsed.startChapter : 1;
+  const startVerse = parsed ? parsed.startVerse : 1;
+
+  const heRaw = data.he;
+  const enRaw = data.text;
+
+  // Detect the nested-by-chapter shape (cross-chapter range) versus the flat
+  // single-chapter shape, by looking at whether the first element is an array.
+  const nested = Array.isArray(heRaw) && heRaw.length > 0 && Array.isArray(heRaw[0]);
+
+  const verses = [];
+  if (nested) {
+    // heRaw[i] is the verses of chapter (startChapter + i); the first chapter
+    // begins at startVerse, every later chapter begins at verse 1.
+    heRaw.forEach((chapterVerses, ci) => {
+      const chapter = startChapter + ci;
+      const firstVerse = ci === 0 ? startVerse : 1;
+      const enChapter = Array.isArray(enRaw) && Array.isArray(enRaw[ci]) ? enRaw[ci] : [];
+      chapterVerses.forEach((he, vi) => {
+        const verse = firstVerse + vi;
+        verses.push({
+          ref: `${book} ${chapter}:${verse}`,
+          chapter,
+          verse,
+          he: stripHtml(typeof he === 'string' ? he : ''),
+          en: stripHtml(typeof enChapter[vi] === 'string' ? enChapter[vi] : ''),
+        });
+      });
+    });
+  } else {
+    // Flat single-chapter range: every verse is in startChapter, counting up from
+    // startVerse.
+    const heFlat = Array.isArray(heRaw) ? heRaw : [];
+    const enFlat = Array.isArray(enRaw) ? enRaw : [];
+    heFlat.forEach((he, vi) => {
+      const verse = startVerse + vi;
+      verses.push({
+        ref: `${book} ${startChapter}:${verse}`,
+        chapter: startChapter,
+        verse,
+        he: stripHtml(typeof he === 'string' ? he : ''),
+        en: stripHtml(typeof enFlat[vi] === 'string' ? enFlat[vi] : ''),
+      });
+    });
+  }
+
+  return {
+    ref: data.ref || rangeRef,
+    heRef: data.heRef || '',
+    verses,
+  };
+}
+
 // Load any Sefaria ref's text: a commentary, a cited verse, a halakhic code,
 // a parallel passage. Same shape and same stripping as getAmud, so commentary
 // and connection panels render exactly like the daf does.
