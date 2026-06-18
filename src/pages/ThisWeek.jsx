@@ -331,22 +331,32 @@ function AliyahBody({
     );
   }
 
+  // With English or transliteration on, the aliyah reads as a small chart: each
+  // verse a row of two boxes, the Hebrew on the right and the chosen companion
+  // (English by default, transliteration when asked) on the left. With both off,
+  // it is the flowing column. The two are mutually exclusive, so it is always two
+  // boxes, never three.
+  const pairMode = showEnglish || showTranslit;
+
   return (
     <>
-      {showTranslit ? (
+      {pairMode ? (
         <div>
           {aliyah.verses.map((v) => {
             const he = showTaamim ? v.he : stripCantillation(v.he);
-            const t = transliterateVerse(v.he);
+            const companion = showTranslit ? transliterateVerse(v.he) : (v.en || '');
             return (
               <div key={v.ref} className="aliyah-pair">
-                <div className="pair-hebrew">
+                <div className="pair-cell pair-hebrew">
                   {showNumbers && (
                     <sup className="pair-num" aria-hidden="true">{v.verse}</sup>
                   )}
                   <TappableHebrew html={he} fontSize={heSize} onWordTap={onWordTap} showTranslit={false} />
                 </div>
-                <div className="pair-translit">{t}</div>
+                <div className={'pair-cell pair-second' + (showTranslit ? ' is-translit' : '')}>
+                  {showNumbers && <span className="pair-num">{v.verse}</span>}
+                  {companion}
+                </div>
               </div>
             );
           })}
@@ -359,35 +369,6 @@ function AliyahBody({
           showTaamim={showTaamim}
           onWordTap={onWordTap}
         />
-      )}
-
-      {showEnglish && (
-        <div
-          style={{
-            marginTop: 'var(--space-lg)',
-            paddingTop: 'var(--space-md)',
-            borderTop: '1px solid var(--border)',
-          }}
-        >
-          {aliyah.verses.map((v) =>
-            v.en ? (
-              <p
-                key={v.ref}
-                style={{
-                  fontFamily: 'var(--font-accent)',
-                  fontSize: '1.1rem',
-                  lineHeight: 1.7,
-                  margin: '0 0 var(--space-sm)',
-                }}
-              >
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--muted)', marginRight: '0.4rem' }}>
-                  {v.verse}
-                </span>
-                {v.en}
-              </p>
-            ) : null
-          )}
-        </div>
       )}
 
       <p style={{ margin: 'var(--space-md) 0 0', color: 'var(--muted)', fontSize: '0.85rem' }}>
@@ -433,19 +414,19 @@ function Controls({
         </button>
         <button
           type="button"
-          className={showTranslit ? 'pill-button pill-button--active' : 'pill-button'}
-          aria-pressed={showTranslit}
-          onClick={() => setShowTranslit(!showTranslit)}
+          className={showEnglish ? 'pill-button pill-button--active' : 'pill-button'}
+          aria-pressed={showEnglish}
+          onClick={() => { setShowEnglish(!showEnglish); if (!showEnglish) setShowTranslit(false); }}
         >
-          Transliteration
+          English
         </button>
         <button
           type="button"
-          className={showEnglish ? 'pill-button pill-button--active' : 'pill-button'}
-          aria-pressed={showEnglish}
-          onClick={() => setShowEnglish(!showEnglish)}
+          className={showTranslit ? 'pill-button pill-button--active' : 'pill-button'}
+          aria-pressed={showTranslit}
+          onClick={() => { setShowTranslit(!showTranslit); if (!showTranslit) setShowEnglish(false); }}
         >
-          Show the English
+          Transliteration
         </button>
       </div>
 

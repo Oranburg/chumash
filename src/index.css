@@ -481,30 +481,40 @@
 .aliyah-pair {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--space-md);
-  align-items: start;
-  padding: var(--space-sm) 0;
-  border-bottom: 1px solid var(--border);
+  gap: var(--space-sm);
+  align-items: stretch;
+  margin-bottom: var(--space-sm);
+}
+.aliyah-pair .pair-cell {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
 }
 .aliyah-pair .pair-hebrew {
   grid-column: 2;
   direction: rtl;
   text-align: right;
 }
-.aliyah-pair .pair-translit {
+.aliyah-pair .pair-second {
   grid-column: 1;
   direction: ltr;
   text-align: left;
-  color: var(--muted);
-  font-family: var(--font-body);
+  font-family: var(--font-accent);
+  font-size: 1.05rem;
   line-height: 1.7;
+  color: var(--text);
+}
+.aliyah-pair .pair-second.is-translit {
+  font-family: var(--font-body);
+  color: var(--muted);
 }
 .aliyah-pair .pair-num {
   font-family: var(--font-mono);
   font-size: 0.72em;
   color: var(--muted);
   opacity: 0.75;
-  margin-inline-end: 0.35em;
+  margin-inline-end: 0.4em;
 }
 @media (max-width: 640px) {
   .aliyah-pair {
@@ -512,10 +522,7 @@
     gap: var(--space-xs);
   }
   .aliyah-pair .pair-hebrew,
-  .aliyah-pair .pair-translit {
+  .aliyah-pair .pair-second {
     grid-column: 1;
-  }
-  .aliyah-pair .pair-translit {
-    padding-top: var(--space-xs);
   }
 }
