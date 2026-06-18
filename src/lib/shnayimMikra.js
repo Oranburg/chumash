@@ -87,3 +87,20 @@ export function overallProgress(progress, aliyahCount) {
   }
   return { done, total: count * MARKS.length };
 }
+
+// Progress on each of the three readings across the whole portion: for each
+// mark, how many of the week's aliyot the learner has read that way. The
+// practice is three complete passes over the parsha (twice in Hebrew, once in
+// Onkelos), so this per-reading count is the readout that actually means
+// something, rather than a single lump of marks. Returns one entry per mark in
+// the order the practice takes them: [{ id, label, done, total }].
+export function passProgress(progress, aliyahCount) {
+  const count = Math.max(0, aliyahCount || 0);
+  return MARKS.map((mark) => {
+    let done = 0;
+    for (let i = 0; i < count; i += 1) {
+      if (progress && progress[i] && progress[i][mark.id]) done += 1;
+    }
+    return { id: mark.id, label: mark.label, done, total: count };
+  });
+}

@@ -16,7 +16,7 @@ import {
   writeProgress,
   toggleMark,
   marksDone,
-  overallProgress,
+  passProgress,
   MARKS,
 } from '../lib/shnayimMikra.js';
 
@@ -197,7 +197,7 @@ export default function ThisWeek() {
     [aliyahIndex, parshaRef]
   );
 
-  const overall = overallProgress(progress, aliyot.length);
+  const passes = passProgress(progress, aliyot.length);
 
   const loadAliyah = useCallback(async (rangeRef) => {
     if (!rangeRef) return;
@@ -352,7 +352,7 @@ export default function ThisWeek() {
                   marks={MARKS}
                   done={progress[aliyahIndex] || {}}
                   onToggle={onToggleMark}
-                  overall={overall}
+                  passes={passes}
                 />
 
                 <OnwardPaths parsha={parsha} />
