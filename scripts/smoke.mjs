@@ -267,5 +267,98 @@ try {
     ? pass('ParshaReader wires the commentary panel') : fail('ParshaReader wires the commentary panel');
 } catch (err) { fail('per-verse commentary pieces', err.message); }
 
+// 13. The verse study partner: the system prompt and the chumash- storage keys
+// export, the prompt mirrors docs/PARTNER-PROMPT.md verbatim, and the builder
+// fills {{VERSE_REF}}.
+console.log('\n--- 13. verse partner: prompt + storage keys ---');
+try {
+  const mod = await import('../src/lib/partner.js');
+  typeof mod.PARTNER_SYSTEM_PROMPT === 'string' && mod.PARTNER_SYSTEM_PROMPT.length > 0
+    ? pass('partner.js exports PARTNER_SYSTEM_PROMPT') : fail('partner.js exports PARTNER_SYSTEM_PROMPT');
+  // The storage keys are chumash-prefixed, not havruta-prefixed.
+  mod.PROVIDER_STORAGE === 'chumash-provider'
+    ? pass('PROVIDER_STORAGE is chumash-prefixed') : fail('PROVIDER_STORAGE is chumash-prefixed', mod.PROVIDER_STORAGE);
+  mod.LEVEL_STORAGE === 'chumash-level'
+    ? pass('LEVEL_STORAGE is chumash-prefixed') : fail('LEVEL_STORAGE is chumash-prefixed', mod.LEVEL_STORAGE);
+  if (typeof mod.keyStorageFor === 'function') {
+    mod.keyStorageFor('anthropic') === 'chumash-key-anthropic'
+      ? pass('keyStorageFor builds a chumash- key') : fail('keyStorageFor builds a chumash- key', mod.keyStorageFor('anthropic'));
+  } else { fail('keyStorageFor is a function'); }
+  // No havruta- key leaks through.
+  const partnerSrc = readFileSync(resolve(root, 'src/lib/partner.js'), 'utf8');
+  /havruta-/.test(partnerSrc)
+    ? fail('partner.js must not carry havruta- storage keys') : pass('partner.js carries no havruta- storage keys');
+  // The prompt mirrors the doc: pull the fenced block out of PARTNER-PROMPT.md
+  // and compare it verbatim to the exported prompt.
+  const doc = readFileSync(resolve(root, 'docs/PARTNER-PROMPT.md'), 'utf8');
+  const fence = doc.match(/```\n([\s\S]*?)\n```/);
+  if (fence && mod.PARTNER_SYSTEM_PROMPT) {
+    fence[1] === mod.PARTNER_SYSTEM_PROMPT
+      ? pass('partner.js prompt mirrors docs/PARTNER-PROMPT.md verbatim')
+      : fail('partner.js prompt mirrors docs/PARTNER-PROMPT.md verbatim', 'fenced block and export differ');
+  } else { fail('docs/PARTNER-PROMPT.md has a fenced prompt block'); }
+  // The prompt names the Leibowitz method and keeps the {{VERSE_REF}} placeholder.
+  /what is bothering Rashi/i.test(mod.PARTNER_SYSTEM_PROMPT)
+    ? pass('prompt names the Leibowitz method') : fail('prompt names the Leibowitz method');
+  mod.PARTNER_SYSTEM_PROMPT.includes('{{VERSE_REF}}')
+    ? pass('prompt carries the {{VERSE_REF}} placeholder') : fail('prompt carries the {{VERSE_REF}} placeholder');
+  if (typeof mod.buildSystemPrompt === 'function') {
+    const built = mod.buildSystemPrompt('Genesis 1:1', 'a casual scholar');
+    built.includes('Genesis 1:1') && !built.includes('{{VERSE_REF}}')
+      ? pass('buildSystemPrompt fills {{VERSE_REF}}') : fail('buildSystemPrompt fills {{VERSE_REF}}');
+  } else { fail('buildSystemPrompt is a function'); }
+} catch (err) { fail('verse partner prompt + keys', err.message); }
+
+// 14. The Settings route and page exist and use chumash- keys.
+console.log('\n--- 14. Settings route + page ---');
+try {
+  const appSrc = readFileSync(resolve(root, 'src/App.jsx'), 'utf8');
+  appSrc.includes('path="/settings"') ? pass('settings route registered') : fail('settings route registered');
+  appSrc.includes("import Settings from './pages/Settings.jsx'") ? pass('App imports the Settings page') : fail('App imports the Settings page');
+  appSrc.includes("to: '/settings'") ? pass('settings nav entry present') : fail('settings nav entry present');
+  const setSrc = readFileSync(resolve(root, 'src/pages/Settings.jsx'), 'utf8');
+  setSrc.includes('keyStorageFor') ? pass('Settings stores the key under a chumash- key') : fail('Settings stores the key under a chumash- key');
+  /havruta-/.test(setSrc) ? fail('Settings must not carry havruta- keys') : pass('Settings carries no havruta- keys');
+  // The key is never hardcoded: no inline sk-ant-/sk- literal assignment.
+  /sk-ant-[A-Za-z0-9]/.test(setSrc) ? fail('Settings must not hardcode a key') : pass('Settings hardcodes no key');
+} catch (err) { fail('Settings route + page', err.message); }
+
+// 15. The per-verse action and the human-acts-first gate. The partner must not
+// reach the model before the learner submits her first observation: start() is
+// called only from the first-reading submit handler, and the conversation hook
+// makes no model call until start().
+console.log('\n--- 15. per-verse action + human-acts-first gate ---');
+try {
+  const readerSrc = readFileSync(resolve(root, 'src/components/ParshaReader.jsx'), 'utf8');
+  readerSrc.includes('VerseHavruta') ? pass('ParshaReader wires the verse partner') : fail('ParshaReader wires the verse partner');
+
+  const panelSrc = readFileSync(resolve(root, 'src/components/VerseHavruta.jsx'), 'utf8');
+  // The labeled, distinct action.
+  panelSrc.includes('Study this verse with your havruta')
+    ? pass('panel has the labeled per-verse action') : fail('panel has the labeled per-verse action');
+  // The gate: start() is reached only through the first-reading submit, which
+  // requires a non-empty observation. The reply path uses sendReply, not start.
+  panelSrc.includes('submitFirstReading') && /submitFirstReading[\s\S]*?start\(/.test(panelSrc)
+    ? pass('start() is gated behind the first-observation submit') : fail('start() is gated behind the first-observation submit');
+  /firstReading\.trim\(\)\.length === 0/.test(panelSrc)
+    ? pass('the first observation must be non-empty before the partner runs') : fail('the first observation must be non-empty');
+
+  const hookSrc = readFileSync(resolve(root, 'src/lib/usePartnerConversation.js'), 'utf8');
+  // The hook only calls the model from runExchange, and runExchange runs only
+  // from start() and sendReply(); there is no model call at module scope or in a
+  // mount effect. Confirm streamPartner is invoked solely inside runExchange.
+  const streamCalls = (hookSrc.match(/streamPartner\(/g) || []).length;
+  streamCalls === 1 ? pass('hook calls the model in exactly one place (runExchange)') : fail('hook calls the model in exactly one place', `${streamCalls} call sites`);
+  /function start\(/.test(hookSrc) && hookSrc.includes('runExchange()')
+    ? pass('hook runs the exchange only after start()/sendReply()') : fail('hook runs the exchange only after start()/sendReply()');
+  // The hook must not run the partner from a mount/load effect at all.
+  /useEffect\([^)]*streamPartner/.test(hookSrc)
+    ? fail('hook must not call the model from an effect') : pass('hook does not call the model from an effect');
+
+  // The missing-key path points at Settings, not an error.
+  panelSrc.includes('noKey') && /to="\/settings"/.test(panelSrc)
+    ? pass('missing-key path links to /settings') : fail('missing-key path links to /settings');
+} catch (err) { fail('per-verse action + gate', err.message); }
+
 console.log(`\n${passes + failures} checks: ${passes} passed, ${failures} failed`);
 if (failures > 0) process.exit(1);

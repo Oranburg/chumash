@@ -7,10 +7,11 @@
 // as the partner ranges across the whole library.
 //
 // The toolset is led by sefaria_links, because Sefaria has already done the
-// cross-referencing: for any line it returns the curated parallel Talmud sugyot
-// and the Tanakh verses the line cites, so the partner finds connections without
-// guessing. sefaria_search is the fallback for a phrase or concept, with the
-// query drawn from the words of the text.
+// cross-referencing: for a verse it returns the commentators on it (Onkelos,
+// Rashi, Rashbam, Ibn Ezra, Ramban, Sforno, and more) and the other verses it
+// connects to, so the partner finds the parshanim without guessing.
+// sefaria_search is the fallback for a phrase or theme, with the query drawn
+// from the words of the verse.
 
 import {
   getLinksForRef,
@@ -24,14 +25,14 @@ export const SEFARIA_TOOLS = [
   {
     name: 'sefaria_links',
     description:
-      'List the cross-references Sefaria connects to a passage: parallel Talmud sugyot, the Tanakh verses it cites, its commentaries (Rashi, Tosafot, and others), halakhic codes, Kabbalah, and Midrash. Use this FIRST to find where else in the canon a line is treated; Sefaria has already curated these links, so you do not guess. Returns reference names you then read with sefaria_text.',
+      'List the cross-references Sefaria connects to a verse: the classical commentators on it (Onkelos, Rashi, Rashbam, Ibn Ezra, Ramban, Sforno, and others), the other Tanakh verses it echoes or cites, Midrash, halakhic codes, and Kabbalah. Use this FIRST to find which commentators have a note on the verse and where else it is treated; Sefaria has already curated these links, so you do not guess. Returns reference names you then read with sefaria_text.',
     parameters: {
       type: 'object',
       properties: {
         ref: {
           type: 'string',
           description:
-            'A Sefaria reference, for example "Chullin 45a:2", "Genesis 1:1", or "Rashi on Chullin 45a:2".',
+            'A Sefaria reference, for example "Genesis 1:1", "Rashi on Genesis 1:1", or "Ibn Ezra on Exodus 3:14".',
         },
       },
       required: ['ref'],
@@ -40,14 +41,14 @@ export const SEFARIA_TOOLS = [
   {
     name: 'sefaria_text',
     description:
-      'Fetch the verbatim Hebrew/Aramaic and English text of any Sefaria reference. This is the only way to quote text you were not handed; quote only what it returns. Use it to read a parallel sugya, a cited verse, or a commentary you found through sefaria_links or sefaria_search.',
+      "Fetch the verbatim Hebrew/Aramaic and English text of any Sefaria reference. This is the only way to quote text you were not handed; quote only what it returns. Use it to read a commentator's note (Onkelos, Rashi, Rashbam, Ibn Ezra, Ramban, Sforno) or another verse you found through sefaria_links or sefaria_search. Onkelos comes back in Aramaic with an English rendering; summarize his reading in English rather than transliterating the Aramaic.",
     parameters: {
       type: 'object',
       properties: {
         ref: {
           type: 'string',
           description:
-            'A Sefaria reference, for example "Bava Kamma 2a", "Leviticus 19:18", or "Rashi on Chullin 45a:2".',
+            'A Sefaria reference, for example "Leviticus 19:18", "Rashi on Genesis 1:1", or "Onkelos Genesis 1:1".',
         },
       },
       required: ['ref'],
@@ -56,14 +57,14 @@ export const SEFARIA_TOOLS = [
   {
     name: 'sefaria_search',
     description:
-      'Full-text search across the Sefaria library (Tanakh, Talmud, Midrash, halakhah, Kabbalah, commentaries). Use it only when a connection is not a formal link: a phrase, a concept, or a term discussed elsewhere. Build the query from the words of the text in front of you, not from a guess. Returns matching references with a short snippet; read the full text with sefaria_text.',
+      'Full-text search across the Sefaria library (Tanakh, Talmud, Midrash, halakhah, Kabbalah, commentaries). Use it only when a connection is not a formal link: a phrase, a theme, or a word discussed elsewhere in the Torah. Build the query from the words of the verse in front of you, not from a guess. Returns matching references with a short snippet; read the full text with sefaria_text.',
     parameters: {
       type: 'object',
       properties: {
         query: {
           type: 'string',
           description:
-            'A Hebrew, Aramaic, or English search phrase taken from or about the text.',
+            'A Hebrew or English search phrase taken from or about the verse.',
         },
       },
       required: ['query'],
@@ -72,7 +73,7 @@ export const SEFARIA_TOOLS = [
   {
     name: 'sefaria_lexicon',
     description:
-      "Look a Hebrew or Aramaic word up in Sefaria's dictionaries (Jastrow for rabbinic Aramaic, BDB and Klein for biblical Hebrew). Use it for philology: the plain sense and the range of a word that is doing work in the argument.",
+      "Look a Hebrew or Aramaic word up in Sefaria's dictionaries (BDB and Klein for biblical Hebrew, Jastrow for Aramaic such as Onkelos). Use it for the plain sense and the range of a word that carries the difficulty in the verse. Give the learner the plain meaning in English, not the philological apparatus.",
     parameters: {
       type: 'object',
       properties: {
@@ -109,7 +110,7 @@ export function toOpenAiTools() {
 // A short, human-readable status line for a tool call, shown while it runs.
 export function describeToolCall(name, input) {
   const i = input || {};
-  if (name === 'sefaria_links') return `Finding cross-references for ${i.ref || 'the line'} on Sefaria`;
+  if (name === 'sefaria_links') return `Finding the commentators on ${i.ref || 'the verse'} on Sefaria`;
   if (name === 'sefaria_text') return `Reading ${i.ref || 'a passage'} on Sefaria`;
   if (name === 'sefaria_search') return `Searching Sefaria for “${i.query || ''}”`;
   if (name === 'sefaria_lexicon') return `Looking up ${i.word || 'a word'} in the dictionary`;
@@ -135,12 +136,12 @@ const MAX_TEXT = 3500; // cap a single fetched passage so context stays sane
 async function toolLinks(ref) {
   const b = await getLinksForRef(ref);
   const order = [
-    ['Parallel Talmud', b.talmud],
-    ['Tanakh (cited verses)', b.tanakh],
-    ['Commentaries', b.commentary],
-    ['Halakhah', b.halakhah],
-    ['Kabbalah', b.kabbalah],
+    ['Commentators (parshanim)', b.commentary],
+    ['Related verses (Tanakh)', b.tanakh],
     ['Midrash', b.midrash],
+    ['Halakhah', b.halakhah],
+    ['Talmud', b.talmud],
+    ['Kabbalah', b.kabbalah],
     ['Other', b.other],
   ];
   const lines = [`Cross-references Sefaria connects to ${ref}:`];

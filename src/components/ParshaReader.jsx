@@ -9,6 +9,7 @@ import TappableHebrew from './TappableHebrew.jsx';
 import WordPopover from './WordPopover.jsx';
 import TranslationCompare from './TranslationCompare.jsx';
 import VerseCommentary from './VerseCommentary.jsx';
+import VerseHavruta from './VerseHavruta.jsx';
 
 // The verse-by-verse reading view for a portion. It takes the portion's verse
 // range (a Sefaria ref like "Numbers 16:1-18:32"), fetches the text from Sefaria,
@@ -285,6 +286,7 @@ function Verse({
         enSize={enSize}
         onWordTap={onWordTap}
       />
+      <VerseHavruta verse={verse} enSize={enSize} />
     </li>
   );
 }

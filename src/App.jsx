@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { HashRouter, Routes, Route, NavLink, Link } from 'react-router-dom';
-import { Sun, Moon, CalendarDays, Library } from 'lucide-react';
+import { Sun, Moon, CalendarDays, Library, Settings as SettingsIcon } from 'lucide-react';
 
 import ThisWeek from './pages/ThisWeek.jsx';
 import Reading from './pages/Reading.jsx';
 import Browse from './pages/Browse.jsx';
+import Settings from './pages/Settings.jsx';
 import NotFound from './pages/NotFound.jsx';
 import SiteFooter from './components/SiteFooter.jsx';
 
@@ -58,6 +59,7 @@ function Header() {
 const NAV_ITEMS = [
   { to: '/', label: 'This week', Icon: CalendarDays, end: true },
   { to: '/browse', label: 'Browse', Icon: Library, end: false },
+  { to: '/settings', label: 'Settings', Icon: SettingsIcon, end: false },
 ];
 
 function BottomNav() {
@@ -90,6 +92,7 @@ export default function App() {
             <Route path="/" element={<ThisWeek />} />
             <Route path="/browse" element={<Browse />} />
             <Route path="/parsha/:name" element={<Reading />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </div>
