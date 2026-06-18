@@ -1,17 +1,20 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import mdx from '@mdx-js/rollup';
-import { VitePWA } from 'vite-plugin-pwa';
+import { defineConfig } from 'astro/config';
+import react from '@astrojs/react';
+import VitePWA from '@vite-pwa/astro';
 
-// Deployed on GitHub Pages under the /chumash/ subpath. Uses HashRouter, so deep links
-// resolve client-side and no SPA 404 rewrite is needed. (Same deploy shape as havruta.)
+// Deployed on GitHub Pages under the /chumash/ subpath. The whole React app
+// mounts as a single client-only island, so Astro is only the build shell and
+// the HTML host. The app keeps its HashRouter, so deep links resolve
+// client-side and no SPA 404 rewrite is needed. (Same deploy shape as havruta.)
+//
+// Astro emits the static site to dist/, which the GitHub Pages workflow
+// uploads unchanged.
 export default defineConfig({
   base: '/chumash/',
-  plugins: [
-    // MDX runs before the React plugin so any .mdx content compiles with the React
-    // automatic runtime, the same way .jsx files do.
-    { enforce: 'pre', ...mdx({ jsxImportSource: 'react' }) },
-    react({ include: /\.(jsx|js|mdx|md|tsx|ts)$/ }),
+  output: 'static',
+  outDir: './dist',
+  integrations: [
+    react(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icons/apple-touch-icon.png'],

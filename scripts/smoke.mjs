@@ -10,7 +10,7 @@
 // Exit code 0 = all pass. Non-zero = one or more failures.
 // Run: node scripts/smoke.mjs
 
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -462,9 +462,12 @@ try {
 // handler guarded by a session flag so neither reload path can loop.
 console.log('\n--- 20. service-worker self-heal ---');
 try {
-  const cfg = readFileSync(resolve(root, 'vite.config.js'), 'utf8');
+  // The PWA options moved from vite.config.js into astro.config.mjs when the
+  // build shell became Astro; the @vite-pwa/astro wrapper carries the same
+  // workbox config.
+  const cfg = readFileSync(resolve(root, 'astro.config.mjs'), 'utf8');
   /registerType:\s*'autoUpdate'/.test(cfg)
-    ? pass('vite-plugin-pwa uses registerType autoUpdate') : fail('vite-plugin-pwa uses registerType autoUpdate');
+    ? pass('VitePWA uses registerType autoUpdate') : fail('VitePWA uses registerType autoUpdate');
   /cleanupOutdatedCaches:\s*true/.test(cfg)
     ? pass('workbox cleanupOutdatedCaches is set') : fail('workbox cleanupOutdatedCaches is set');
   /clientsClaim:\s*true/.test(cfg)
@@ -477,9 +480,11 @@ try {
   /globPatterns:\s*\[[^\]]*ttf/.test(cfg)
     ? pass('the STaM font precache is kept (ttf in globPatterns)') : fail('the STaM font precache is kept');
 
-  const main = readFileSync(resolve(root, 'src/main.jsx'), 'utf8');
-  main.includes('sw-register') && /initServiceWorker\(\)/.test(main)
-    ? pass('main.jsx wires the self-heal registration') : fail('main.jsx wires the self-heal registration');
+  // Under the island, App.jsx runs initServiceWorker from a mount effect; the
+  // old main.jsx is gone with the Vite entry.
+  const appSwSrc = readFileSync(resolve(root, 'src/App.jsx'), 'utf8');
+  appSwSrc.includes('sw-register') && /initServiceWorker\(\)/.test(appSwSrc)
+    ? pass('App.jsx wires the self-heal registration') : fail('App.jsx wires the self-heal registration');
 
   const reg = readFileSync(resolve(root, 'src/sw-register.js'), 'utf8');
   reg.includes("from 'virtual:pwa-register'")
@@ -588,6 +593,47 @@ try {
   /CC BY-SA 3\.0/.test(sources)
     ? pass('SOURCES.md records the CC BY-SA 3.0 license') : fail('SOURCES.md records the license');
 } catch (err) { fail('leyning player pieces', err.message); }
+
+// 22. The Astro build shell: the whole React app mounts as a single
+// client-only island, the base path is /chumash/, and the emitted dist/ carries
+// the app shell, the built assets, the STaM fonts, and the service worker under
+// the base. Astro is only the host; the React app is unchanged.
+console.log('\n--- 22. Astro build shell + island ---');
+try {
+  const astroPage = readFileSync(resolve(root, 'src/pages/index.astro'), 'utf8');
+  astroPage.includes("import App from '../App.jsx'")
+    ? pass('index.astro imports the existing App') : fail('index.astro imports the existing App');
+  /<App\s+client:only="react"\s*\/>/.test(astroPage)
+    ? pass('index.astro mounts App as a client:only react island') : fail('index.astro mounts App as a client:only react island');
+  // The pre-paint theme script and the root div are carried over.
+  astroPage.includes('chumash-theme') ? pass('index.astro keeps the pre-paint theme script') : fail('index.astro keeps the pre-paint theme script');
+  astroPage.includes('id="root"') ? pass('index.astro keeps the root mount node') : fail('index.astro keeps the root mount node');
+
+  const cfg = readFileSync(resolve(root, 'astro.config.mjs'), 'utf8');
+  /base:\s*'\/chumash\/'/.test(cfg)
+    ? pass("astro.config.mjs sets base '/chumash/'") : fail("astro.config.mjs sets base '/chumash/'");
+  /output:\s*'static'/.test(cfg)
+    ? pass('astro.config.mjs builds a static site') : fail('astro.config.mjs builds a static site');
+
+  // The emitted build, if present, serves the shell with base-correct assets and
+  // ships the fonts and the service worker under the base. The check is skipped
+  // before the first build so the harness still runs offline; CI runs it after
+  // astro build, where dist/ is present.
+  const distIndex = resolve(root, 'dist/index.html');
+  if (existsSync(distIndex)) {
+    const html = readFileSync(distIndex, 'utf8');
+    /\/chumash\/_astro\//.test(html) || /src="\/chumash\//.test(html)
+      ? pass('dist/index.html references built assets under /chumash/') : fail('dist/index.html references built assets under /chumash/');
+    existsSync(resolve(root, 'dist/fonts/StamAshkenazCLM.ttf')) && existsSync(resolve(root, 'dist/fonts/StamSefaradCLM.ttf'))
+      ? pass('dist ships both STaM fonts under /fonts') : fail('dist ships both STaM fonts under /fonts');
+    existsSync(resolve(root, 'dist/sw.js'))
+      ? pass('dist ships the service worker (sw.js)') : fail('dist ships the service worker (sw.js)');
+    existsSync(resolve(root, 'dist/manifest.webmanifest'))
+      ? pass('dist ships the PWA manifest') : fail('dist ships the PWA manifest');
+  } else {
+    console.log('SKIP  dist/ checks (no build present; run astro build first)');
+  }
+} catch (err) { fail('Astro build shell + island', err.message); }
 
 console.log(`\n${passes + failures} checks: ${passes} passed, ${failures} failed`);
 if (failures > 0) process.exit(1);

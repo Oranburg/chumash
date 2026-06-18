@@ -9,6 +9,7 @@ import Browse from './pages/Browse.jsx';
 import Settings from './pages/Settings.jsx';
 import NotFound from './pages/NotFound.jsx';
 import SiteFooter from './components/SiteFooter.jsx';
+import { initServiceWorker } from './sw-register.js';
 
 const THEME_KEY = 'chumash-theme';
 
@@ -84,6 +85,14 @@ function BottomNav() {
 }
 
 export default function App() {
+  // The app mounts as a client-only island, so the service-worker self-heal
+  // that the old main.jsx ran after render now runs from here, once, on the
+  // client after the first mount. It registers the worker and installs the
+  // controllerchange and chunk-load self-heal exactly as before.
+  useEffect(() => {
+    initServiceWorker();
+  }, []);
+
   return (
     <HashRouter>
       <div className="app-shell">
