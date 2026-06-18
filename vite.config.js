@@ -31,6 +31,15 @@ export default defineConfig({
         ]
       },
       workbox: {
+        // A new service worker takes control as soon as it installs and purges
+        // any precache left by an older build, so a returning visitor never gets
+        // a stale app or a precache pointing at hashed chunks that no longer exist.
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
+        // HashRouter keeps all routes on index.html, so an unknown navigation
+        // falls back to the app shell rather than a precache miss.
+        navigateFallback: '/chumash/index.html',
         // The scribal STaM fonts are precached so the scroll hero renders in
         // its real letterforms offline after the first visit.
         globPatterns: ['**/*.{html,css,ttf}'],

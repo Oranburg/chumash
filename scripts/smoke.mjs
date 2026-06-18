@@ -457,5 +457,45 @@ try {
   /to="\/haftarah"/.test(homeSrc) ? pass('home links to the haftarah') : fail('home links to the haftarah');
 } catch (err) { fail('haftarah route + page', err.message); }
 
+// 20. The service-worker hardening: autoUpdate plus the workbox flags that purge
+// a stale precache, the self-heal registration wired into main, and a chunk-load
+// handler guarded by a session flag so neither reload path can loop.
+console.log('\n--- 20. service-worker self-heal ---');
+try {
+  const cfg = readFileSync(resolve(root, 'vite.config.js'), 'utf8');
+  /registerType:\s*'autoUpdate'/.test(cfg)
+    ? pass('vite-plugin-pwa uses registerType autoUpdate') : fail('vite-plugin-pwa uses registerType autoUpdate');
+  /cleanupOutdatedCaches:\s*true/.test(cfg)
+    ? pass('workbox cleanupOutdatedCaches is set') : fail('workbox cleanupOutdatedCaches is set');
+  /clientsClaim:\s*true/.test(cfg)
+    ? pass('workbox clientsClaim is set') : fail('workbox clientsClaim is set');
+  /skipWaiting:\s*true/.test(cfg)
+    ? pass('workbox skipWaiting is set') : fail('workbox skipWaiting is set');
+  /navigateFallback:/.test(cfg)
+    ? pass('workbox has a SPA navigation fallback') : fail('workbox has a SPA navigation fallback');
+  // The Culmus font precache is not dropped.
+  /globPatterns:\s*\[[^\]]*ttf/.test(cfg)
+    ? pass('the STaM font precache is kept (ttf in globPatterns)') : fail('the STaM font precache is kept');
+
+  const main = readFileSync(resolve(root, 'src/main.jsx'), 'utf8');
+  main.includes('sw-register') && /initServiceWorker\(\)/.test(main)
+    ? pass('main.jsx wires the self-heal registration') : fail('main.jsx wires the self-heal registration');
+
+  const reg = readFileSync(resolve(root, 'src/sw-register.js'), 'utf8');
+  reg.includes("from 'virtual:pwa-register'")
+    ? pass('registration uses the virtual:pwa-register module') : fail('registration uses the virtual:pwa-register module');
+  /controllerchange/.test(reg)
+    ? pass('a controllerchange reload is wired') : fail('a controllerchange reload is wired');
+  // Both reload paths are guarded by a session flag.
+  /sessionStorage/.test(reg) && /controller-reloaded|CONTROLLER_RELOAD_FLAG/.test(reg)
+    ? pass('the controller-change reload is guarded by a session flag') : fail('the controller-change reload is guarded by a session flag');
+  /Failed to fetch dynamically imported module|ChunkLoadError/.test(reg)
+    ? pass('the chunk-load error handler exists') : fail('the chunk-load error handler exists');
+  /CHUNK_HEAL_FLAG|chunk-heal-attempted/.test(reg)
+    ? pass('the chunk-load self-heal is guarded by a session flag') : fail('the chunk-load self-heal is guarded by a session flag');
+  /caches\.keys\(\)/.test(reg) && /unregister\(\)/.test(reg)
+    ? pass('the self-heal clears caches and unregisters workers') : fail('the self-heal clears caches and unregisters workers');
+} catch (err) { fail('service-worker self-heal', err.message); }
+
 console.log(`\n${passes + failures} checks: ${passes} passed, ${failures} failed`);
 if (failures > 0) process.exit(1);
