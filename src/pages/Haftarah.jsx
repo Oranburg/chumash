@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import Breadcrumb from '../components/Breadcrumb.jsx';
 import ParshaReader from '../components/ParshaReader.jsx';
+import LeyningPlayer from '../components/LeyningPlayer.jsx';
 import { getThisWeeksParsha } from '../lib/parsha.js';
 import { readLocale } from '../lib/locale.js';
 import { transliterate } from '../lib/transliterate.js';
@@ -97,6 +98,10 @@ export default function Haftarah() {
               reading from the Prophets to show. You can still read the portion.
             </p>
           </div>
+        )}
+
+        {!loading && !error && haftarahRef && parsha && parsha.name && (
+          <LeyningPlayer parshaName={parsha.name} kind="haftarah" />
         )}
 
         {!loading && !error && haftarahRef && (

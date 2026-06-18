@@ -33,6 +33,47 @@ The HTML in `he` and `text` is stripped and its entities decoded by the same `st
 
 The texts used: the Tanakh (Torah and the haftarah readings from the Prophets), Targum Onkelos, and Rashi. Translations are whatever Sefaria carries for the ref, surfaced through the translation-compare component.
 
+## Leyning audio (PocketTorah)
+
+Verified on 2026-06-18.
+
+The "chant this aliyah" player streams the Torah reading chanted in the Ashkenazi (Avery-Binder) trope from PocketTorah, the open project by Russel Neiss and Charlie Schwartz. The recordings live in the `rneiss/PocketTorah` GitHub repository under `data/audio`, one MP3 per aliyah.
+
+### URL pattern
+
+```
+https://raw.githubusercontent.com/rneiss/PocketTorah/master/data/audio/<Basename>-<n>.mp3
+```
+
+`<n>` is `1` through `7` for the seven aliyot and `H` for the haftarah. `<Basename>` is the portion name with spaces and apostrophes removed, with one literal hyphen kept in `Lech-Lecha`. A few names do not reduce cleanly from Sefaria's display form, so `src/lib/leyning.js` carries an explicit table for them: `Re'eh` becomes `Reeh`, `Va'etchanan` becomes `Vaethanan`, `Beha'alotcha` becomes `Behaalotcha`, `Sh'lach` becomes `Shlach`, `V'Zot HaBerachah` becomes `VezotHaberakhah`, `Achrei Mot` becomes `AchreiMot`, `Chayei Sara` becomes `ChayeiSara`, `Ki Tavo` becomes `KiTavo`, `Ki Teitzei` becomes `KiTeitzei`, `Ki Tisa` becomes `KiTisa`, `Ha'azinu` becomes `Haazinu`. All fifty-four basenames were confirmed present in the repository directory listing on the verification date.
+
+Examples that returned HTTP 200: `Bereshit-1.mp3`, `Bereshit-H.mp3`, `Lech-Lecha-1.mp3`, `Reeh-1.mp3`, `Vaethanan-1.mp3`, `VezotHaberakhah-1.mp3`, `Balak-1.mp3`.
+
+A doubled week has no combined recording. PocketTorah recorded each portion separately, so the player uses the first portion of the pair and says so in the interface.
+
+### Cross-origin and range headers (the reason this path is safe)
+
+`curl -I` on `https://raw.githubusercontent.com/rneiss/PocketTorah/master/data/audio/Balak-1.mp3` returned, among others:
+
+```
+HTTP/2 200
+content-type: audio/mpeg
+accept-ranges: bytes
+access-control-allow-origin: *
+cross-origin-resource-policy: cross-origin
+content-length: 1090967
+```
+
+A cross-origin GET with `Origin: https://oranburg.github.io` and `Range: bytes=0-1023` returned `HTTP/2 206` with `content-range: bytes 0-1023/1090967` and the same `access-control-allow-origin: *`. So the host serves the files to a different origin, allows the bytes to be read (CORS), and honors range requests, which is what the native scrubber and any cross-origin fetch need from a GitHub Pages site. The `content-disposition: attachment` header does not stop an `<audio>` element or a `fetch`. The player sets `crossOrigin="anonymous"` and `preload="none"` so nothing streams until the reader presses play.
+
+### License and attribution
+
+The recordings are released under Creative Commons Attribution-ShareAlike 3.0 (CC BY-SA 3.0), confirmed on the Internet Archive mirror (`archive.org/details/PockettorahAudioFiles`) and in the project's public account of its 2011 Jewish New Media Fund grant. The PocketTorah application code is LGPL, which does not affect playing the audio. The player carries a visible credit: the recording is from PocketTorah, chanted in the Avery-Binder Ashkenazi trope, released under CC BY-SA 3.0, with links to the source and the license. CC BY-SA requires attribution and that any redistribution of the audio itself carry the same license; this app streams the files in place rather than redistributing them, and the attribution travels with the player.
+
+### Per-word sync (not used)
+
+PocketTorah also ships per-word onset times in `data/torah/labels/<Parsha> -<n>.txt` (note the labels directory uses a different name form than the audio: a space and a lowercase `h`). Each file is a flat comma-separated list of timestamps in seconds, one per word, with no verse or word text in the file. Word-level highlighting is therefore possible but would need its own name mapping plus an alignment between those positions and Sefaria's word tokens. It was left out of this build to keep the player simple and the build safe, and is documented here as a future option.
+
 ## Calendar fallback
 
 `@hebcal/core` computes the sedra locally with no network, as the offline-cold path and a cross-check on Sefaria.

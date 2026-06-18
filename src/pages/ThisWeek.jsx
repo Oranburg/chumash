@@ -7,6 +7,7 @@ import ScrollColumn from '../components/ScrollColumn.jsx';
 import StudyTable from '../components/StudyTable.jsx';
 import WordPopover from '../components/WordPopover.jsx';
 import ShnayimMikraTracker from '../components/ShnayimMikraTracker.jsx';
+import LeyningPlayer from '../components/LeyningPlayer.jsx';
 import { getThisWeeksParsha, ALIYAH_LABELS } from '../lib/parsha.js';
 import { getParshaText } from '../lib/sefaria.js';
 import { readLocale, writeLocale } from '../lib/locale.js';
@@ -322,6 +323,14 @@ export default function ThisWeek() {
                   showTaamim={showTaamim}
                   onWordTap={openWord}
                 />
+
+                {aliyah && !aliyahLoading && !aliyahError && aliyahIndex >= 0 && (
+                  <LeyningPlayer
+                    parshaName={parsha.name}
+                    aliyahIndex={aliyahIndex}
+                    aliyahLabel={aliyahLabel}
+                  />
+                )}
 
                 {aliyah && !aliyahLoading && !aliyahError && (
                   <p

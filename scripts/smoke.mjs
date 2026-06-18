@@ -497,5 +497,97 @@ try {
     ? pass('the self-heal clears caches and unregisters workers') : fail('the self-heal clears caches and unregisters workers');
 } catch (err) { fail('service-worker self-heal', err.message); }
 
+// 21. The leyning player: the PocketTorah source URL resolves to the verified
+// pattern, the name mapping handles the irregular portions, the player never
+// autoplays, cleans up audio on unmount, reports a failure rather than spinning,
+// and carries the source and CC BY-SA license notice. The home page and the
+// haftarah page wire it in, and docs/SOURCES.md records the verified pattern.
+console.log('\n--- 21. leyning player (PocketTorah) ---');
+try {
+  const mod = await import('../src/lib/leyning.js');
+  // The URL builder produces the verified raw.githubusercontent pattern.
+  typeof mod.aliyahAudioUrl === 'function'
+    ? pass('aliyahAudioUrl is a function') : fail('aliyahAudioUrl is a function');
+  if (typeof mod.aliyahAudioUrl === 'function') {
+    const u1 = mod.aliyahAudioUrl('Bereshit', 0);
+    u1 === 'https://raw.githubusercontent.com/rneiss/PocketTorah/master/data/audio/Bereshit-1.mp3'
+      ? pass('aliyah 0 maps to <Parsha>-1.mp3 at the verified host')
+      : fail('aliyah 0 maps to <Parsha>-1.mp3 at the verified host', u1);
+    const u7 = mod.aliyahAudioUrl('Bereshit', 6);
+    /Bereshit-7\.mp3$/.test(u7) ? pass('aliyah 6 maps to -7.mp3') : fail('aliyah 6 maps to -7.mp3', u7);
+    const uh = mod.aliyahAudioUrl('Bereshit', 0, 'haftarah');
+    /Bereshit-H\.mp3$/.test(uh) ? pass('haftarah maps to -H.mp3') : fail('haftarah maps to -H.mp3', uh);
+    // The irregular Sefaria display names resolve to the real PocketTorah basenames.
+    const cases = [
+      ['Lech Lecha', 'Lech-Lecha-1.mp3'],
+      ["Re'eh", 'Reeh-1.mp3'],
+      ["Va'etchanan", 'Vaethanan-1.mp3'],
+      ["Beha'alotcha", 'Behaalotcha-1.mp3'],
+      ["Sh'lach", 'Shlach-1.mp3'],
+      ["V'Zot HaBerachah", 'VezotHaberakhah-1.mp3'],
+      ['Achrei Mot', 'AchreiMot-1.mp3'],
+      ['Chayei Sara', 'ChayeiSara-1.mp3'],
+    ];
+    for (const [name, tail] of cases) {
+      const u = mod.aliyahAudioUrl(name, 0);
+      (u && u.endsWith(tail)) ? pass(`name "${name}" maps to ${tail}`) : fail(`name "${name}" maps to ${tail}`, u);
+    }
+    // A doubled week resolves to the first half and an index past seven clamps.
+    const dbl = mod.aliyahAudioUrl('Tazria-Metzora', 0);
+    /Tazria-1\.mp3$/.test(dbl) ? pass('a doubled week uses the first portion') : fail('a doubled week uses the first portion', dbl);
+    mod.isDoubledName('Tazria-Metzora') === true ? pass('isDoubledName flags a pair') : fail('isDoubledName flags a pair');
+    mod.isDoubledName('Korach') === false ? pass('isDoubledName clears a single portion') : fail('isDoubledName clears a single portion');
+  }
+  // The credit carries the source, the trope, and the CC BY-SA license.
+  mod.LEYNING_CREDIT && mod.LEYNING_CREDIT.source === 'PocketTorah'
+    ? pass('credit names PocketTorah as the source') : fail('credit names PocketTorah as the source');
+  mod.LEYNING_CREDIT && /CC BY-SA/.test(mod.LEYNING_CREDIT.license)
+    ? pass('credit carries the CC BY-SA license') : fail('credit carries the CC BY-SA license');
+
+  // The component: no autoplay, cleanup on unmount, a failure message, the credit.
+  const compSrc = readFileSync(resolve(root, 'src/components/LeyningPlayer.jsx'), 'utf8');
+  // An actual autoplay attribute or prop on the audio element, not the word in a
+  // comment. The player must never carry one.
+  /autoPlay[=\s>]|autoplay[=\s>]/.test(compSrc.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, ''))
+    ? fail('the player must not autoplay') : pass('the player does not autoplay');
+  /preload="none"/.test(compSrc)
+    ? pass('the audio does not preload (nothing streams until play)') : fail('the audio does not preload');
+  // It plays only from a user action: el.play() is reached through the toggle, not an effect.
+  /function toggle\(\)[\s\S]*el\.play\(\)/.test(compSrc)
+    ? pass('play happens only from the user toggle') : fail('play happens only from the user toggle');
+  /useEffect\([^)]*play\(\)/.test(compSrc)
+    ? fail('the player must not call play() from an effect') : pass('the player does not call play() from an effect');
+  // Cleanup: an unmount effect pauses the audio.
+  /return\s*\(\)\s*=>\s*{[\s\S]*\.pause\(\)/.test(compSrc)
+    ? pass('the player pauses the audio on unmount') : fail('the player pauses the audio on unmount');
+  // The reset effect is keyed on the stable src, not on the playing flag it sets.
+  /\},\s*\[src\]\)/.test(compSrc)
+    ? pass('the reset effect is keyed on the src, not its own playing flag')
+    : fail('the reset effect is keyed on the src, not its own playing flag');
+  /onError=/.test(compSrc) && /could not be loaded/.test(compSrc)
+    ? pass('a failed recording shows a message, not a perpetual spinner') : fail('a failed recording shows a message');
+  /crossOrigin="anonymous"/.test(compSrc)
+    ? pass('the audio sets crossOrigin for the cross-origin host') : fail('the audio sets crossOrigin');
+  compSrc.includes('LEYNING_CREDIT')
+    ? pass('the player shows the source and license credit') : fail('the player shows the source and license credit');
+
+  // The home page wires the per-aliyah player; the haftarah page wires the haftarah chant.
+  const homeSrc = readFileSync(resolve(root, 'src/pages/ThisWeek.jsx'), 'utf8');
+  homeSrc.includes('LeyningPlayer') && /aliyahIndex=\{aliyahIndex\}/.test(homeSrc)
+    ? pass('the home page plays the chosen aliyah') : fail('the home page plays the chosen aliyah');
+  const hafSrc = readFileSync(resolve(root, 'src/pages/Haftarah.jsx'), 'utf8');
+  hafSrc.includes('LeyningPlayer') && /kind="haftarah"/.test(hafSrc)
+    ? pass('the haftarah page plays the haftarah chant') : fail('the haftarah page plays the haftarah chant');
+
+  // The docs record the verified source URL pattern and the license.
+  const sources = readFileSync(resolve(root, 'docs/SOURCES.md'), 'utf8');
+  sources.includes('raw.githubusercontent.com/rneiss/PocketTorah')
+    ? pass('SOURCES.md records the verified PocketTorah URL pattern') : fail('SOURCES.md records the verified URL pattern');
+  /access-control-allow-origin/i.test(sources) && /accept-ranges/i.test(sources)
+    ? pass('SOURCES.md records the CORS and range curl evidence') : fail('SOURCES.md records the CORS and range evidence');
+  /CC BY-SA 3\.0/.test(sources)
+    ? pass('SOURCES.md records the CC BY-SA 3.0 license') : fail('SOURCES.md records the license');
+} catch (err) { fail('leyning player pieces', err.message); }
+
 console.log(`\n${passes + failures} checks: ${passes} passed, ${failures} failed`);
 if (failures > 0) process.exit(1);
