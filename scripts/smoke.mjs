@@ -155,12 +155,72 @@ try {
   src.includes("from '../lib/blessings.js'") ? pass('home imports the blessings') : fail('home imports the blessings');
   src.includes('BLESSING_BEFORE') && src.includes('BLESSING_AFTER')
     ? pass('home renders both blessings') : fail('home renders both blessings');
-  src.includes('AliyahColumn') ? pass('home uses AliyahColumn') : fail('home uses AliyahColumn');
+  src.includes('ScrollColumn') ? pass('home uses the scroll column') : fail('home uses the scroll column');
+  src.includes('StudyTable') ? pass('home uses the study table') : fail('home uses the study table');
   src.includes('WordPopover') ? pass('home wires WordPopover') : fail('home wires WordPopover');
   src.includes('getParshaText') ? pass('home fetches the aliyah text') : fail('home fetches the aliyah text');
   src.includes('ALIYAH_LABELS') ? pass('home labels the aliyah') : fail('home labels the aliyah');
   src.includes('var(--gold)') ? pass('home styles the blessings in gold') : fail('home styles the blessings in gold');
+  // The scroll is the default; the study table is the toggle.
+  src.includes("'scroll'") && src.includes("'study'")
+    ? pass('home carries the scroll and study views') : fail('home carries the scroll and study views');
+  src.includes('ashkenazi') && src.includes('sefardi')
+    ? pass('home carries the scribal-tradition switch') : fail('home carries the scribal-tradition switch');
 } catch (err) { fail('src/pages/ThisWeek.jsx readable', err.message); }
+
+// 9. The scroll hero: bare consonants for display, vocalized for lookup. The
+// scroll strips both nikud and te'amim, and the ScrollColumn carries the
+// original vocalized word to the tap handler so transliteration stays correct.
+console.log('\n--- 9. scroll hero ---');
+try {
+  const mod = await import('../src/lib/sefaria.js');
+  typeof mod.stripVowels === 'function'
+    ? pass('stripVowels is a function') : fail('stripVowels is a function');
+  if (typeof mod.stripVowels === 'function') {
+    const bare = mod.stripVowels('בְּרֵאשִׁ֖ית');
+    bare === 'בראשית'
+      ? pass('stripVowels reduces to bare consonants')
+      : fail('stripVowels reduces to bare consonants', `got "${bare}"`);
+  }
+  const scrollSrc = readFileSync(resolve(root, 'src/components/ScrollColumn.jsx'), 'utf8');
+  scrollSrc.includes('stripVowels') ? pass('ScrollColumn strips vowels for display') : fail('ScrollColumn strips vowels for display');
+  // The lookup uses the vocalized token (tok), not the stripped display form.
+  scrollSrc.includes('wordHandlers(tok')
+    ? pass('ScrollColumn looks up the vocalized word') : fail('ScrollColumn looks up the vocalized word');
+} catch (err) { fail('scroll hero pieces', err.message); }
+
+// 10. The study table: four cells with the English merged across the bottom, and
+// the parchment + scroll + study CSS is present.
+console.log('\n--- 10. study table + styles ---');
+try {
+  const studySrc = readFileSync(resolve(root, 'src/components/StudyTable.jsx'), 'utf8');
+  studySrc.includes('study-cell--translit') && studySrc.includes('study-cell--hebrew') && studySrc.includes('study-cell--english')
+    ? pass('study table renders the three cells') : fail('study table renders the three cells');
+  const css = readFileSync(resolve(root, 'src/index.css'), 'utf8');
+  css.includes('.scroll-panel') ? pass('scroll-panel style present') : fail('scroll-panel style present');
+  css.includes("grid-template-areas") && css.includes('english english')
+    ? pass('study verse merges the English row') : fail('study verse merges the English row');
+  const tokens = readFileSync(resolve(root, 'src/styles/tokens.css'), 'utf8');
+  tokens.includes('Stam Ashkenaz CLM') && tokens.includes('Stam Sefarad CLM')
+    ? pass('both STaM @font-face declarations present') : fail('both STaM @font-face declarations present');
+  tokens.includes('--parchment') ? pass('parchment token present') : fail('parchment token present');
+} catch (err) { fail('study table + styles', err.message); }
+
+// 11. The self-hosted STaM font files and their open license actually ship.
+console.log('\n--- 11. STaM font files + license ---');
+try {
+  const ash = readFileSync(resolve(root, 'public/fonts/StamAshkenazCLM.ttf'));
+  const sef = readFileSync(resolve(root, 'public/fonts/StamSefaradCLM.ttf'));
+  ash.length > 1000 ? pass('Stam Ashkenaz CLM ttf present') : fail('Stam Ashkenaz CLM ttf present', `${ash.length} bytes`);
+  sef.length > 1000 ? pass('Stam Sefarad CLM ttf present') : fail('Stam Sefarad CLM ttf present', `${sef.length} bytes`);
+  // A TrueType file starts with 0x00010000 or 'true' or 'OTTO'; check the sfnt tag.
+  const tag = ash.subarray(0, 4);
+  (tag[0] === 0 && tag[1] === 1 && tag[2] === 0 && tag[3] === 0) || tag.toString('ascii') === 'true'
+    ? pass('Ashkenaz ttf has a valid sfnt header') : fail('Ashkenaz ttf has a valid sfnt header');
+  const lic = readFileSync(resolve(root, 'public/fonts/CULMUS-STAM-LICENSE.txt'), 'utf8');
+  /GNU General Public License/i.test(lic) && /special exception/i.test(lic)
+    ? pass('font license is GPL with the font exception') : fail('font license is GPL with the font exception');
+} catch (err) { fail('STaM font files + license', err.message); }
 
 console.log(`\n${passes + failures} checks: ${passes} passed, ${failures} failed`);
 if (failures > 0) process.exit(1);

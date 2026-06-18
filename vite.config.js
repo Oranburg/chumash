@@ -31,7 +31,9 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{html,css}'],
+        // The scribal STaM fonts are precached so the scroll hero renders in
+        // its real letterforms offline after the first visit.
+        globPatterns: ['**/*.{html,css,ttf}'],
         globIgnores: [
           '**/*.{png,jpg,jpeg,webp,avif,svg,gif,ico}',
           '**/mermaid*', '**/katex*', '**/cytoscape*', '**/dagre*', '**/diagram*'

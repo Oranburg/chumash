@@ -473,31 +473,108 @@
   line-height: 1.9;
 }
 
-/* The aliyah shown side by side: transliteration on the left, Hebrew on the
-   right, each verse its own row. On a narrow screen the row stacks, with the
-   Hebrew on top and the transliteration beneath it. The DOM order is Hebrew
-   first, so the stacked phone layout reads Hebrew then transliteration with no
-   reordering, while the grid places the Hebrew in the right column on wide. */
-.aliyah-pair {
+/* The scroll hero: the day's aliyah rendered as a column of a sefer Torah. The
+   panel is parchment (warm cream, dark ink) in both themes, with a soft inner
+   shadow so it reads as a sheet of klaf. The text runs right to left, justified
+   into the column, in the scribal STaM letterforms with no vowels and no
+   te'amim. */
+.scroll-panel {
+  background: var(--parchment);
+  color: var(--parchment-ink);
+  border: 1px solid var(--parchment-edge);
+  border-radius: var(--radius-md);
+  padding: var(--space-xl) var(--space-lg);
+  box-shadow: inset 0 0 40px rgba(120, 92, 40, 0.18), 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.scroll-column {
+  direction: rtl;
+  text-align: justify;
+  text-align-last: right;
+  line-height: 1.9;
+  margin: 0;
+  /* The scribal letterforms. The chosen tradition swaps the first family; both
+     STaM fonts fall back to the app's Hebrew serif if a glyph is missing. */
+  font-family: 'Stam Ashkenaz CLM', var(--font-hebrew);
+  color: var(--parchment-ink);
+}
+
+.scroll-column.is-sefardi {
+  font-family: 'Stam Sefarad CLM', var(--font-hebrew);
+}
+
+/* A scroll word: tappable for the transliteration popover, with the house
+   dashed-underline affordance kept subtle against the parchment. */
+.scroll-word {
+  cursor: help;
+  text-decoration: underline;
+  text-decoration-style: dashed;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+  text-decoration-color: rgba(42, 30, 14, 0.3);
+  border-radius: var(--radius-sm);
+}
+.scroll-word:hover,
+.scroll-word:focus-visible {
+  background: rgba(120, 92, 40, 0.14);
+  outline: none;
+}
+
+.scroll-verse-num {
+  font-family: var(--font-mono);
+  font-size: 0.4em;
+  color: rgba(42, 30, 14, 0.55);
+  margin: 0 0.18em;
+  user-select: none;
+}
+
+/* The blessings framing the scroll: small, gold, centered above and below. */
+.scroll-blessing {
+  font-family: var(--font-hebrew);
+  direction: rtl;
+  text-align: center;
+  color: var(--gold);
+  font-size: 1.05rem;
+  line-height: 2;
+  margin: 0;
+}
+
+/* The study table: per verse, a four-cell box with the English merged across
+   the bottom. Transliteration top-left, vocalized Hebrew top-right, the English
+   spanning the full width beneath. Each cell is bordered so the verse reads as a
+   small chart. */
+.study-verse {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--space-sm);
-  align-items: stretch;
-  margin-bottom: var(--space-sm);
-}
-.aliyah-pair .pair-cell {
-  background: var(--bg-secondary);
+  grid-template-areas:
+    'translit hebrew'
+    'english english';
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: var(--space-sm) var(--space-md);
+  overflow: hidden;
+  margin-bottom: var(--space-md);
+  background: var(--bg-secondary);
 }
-.aliyah-pair .pair-hebrew {
-  grid-column: 2;
+.study-cell {
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--border);
+  margin: -0.5px;
+}
+.study-cell--translit {
+  grid-area: translit;
+  direction: ltr;
+  text-align: left;
+  font-family: var(--font-body);
+  color: var(--muted);
+  line-height: 1.6;
+}
+.study-cell--hebrew {
+  grid-area: hebrew;
   direction: rtl;
   text-align: right;
 }
-.aliyah-pair .pair-second {
-  grid-column: 1;
+.study-cell--english {
+  grid-area: english;
   direction: ltr;
   text-align: left;
   font-family: var(--font-accent);
@@ -505,24 +582,22 @@
   line-height: 1.7;
   color: var(--text);
 }
-.aliyah-pair .pair-second.is-translit {
-  font-family: var(--font-body);
-  color: var(--muted);
-}
-.aliyah-pair .pair-num {
+.study-verse-num {
   font-family: var(--font-mono);
   font-size: 0.72em;
   color: var(--muted);
-  opacity: 0.75;
   margin-inline-end: 0.4em;
 }
+
+/* On a narrow screen the verse collapses to one column. The DOM order is
+   Hebrew, then transliteration, then English, so the stacked reading matches
+   that order with no reflow tricks. */
 @media (max-width: 640px) {
-  .aliyah-pair {
+  .study-verse {
     grid-template-columns: 1fr;
-    gap: var(--space-xs);
-  }
-  .aliyah-pair .pair-hebrew,
-  .aliyah-pair .pair-second {
-    grid-column: 1;
+    grid-template-areas:
+      'hebrew'
+      'translit'
+      'english';
   }
 }

@@ -107,6 +107,17 @@ export function stripCantillation(value) {
   return value.replace(TAAMIM, '');
 }
 
+// Strip both the cantillation (te'amim) and the vowel points (nikud), leaving
+// the bare consonantal text. A Torah scroll carries neither, so the scroll hero
+// renders this form. The range U+0591 to U+05C7 covers every te'am and nekuda;
+// the letters and the maqaf are kept. This is for display only; the vocalized
+// original is kept alongside so word lookup still has its vowels.
+const NIKUD_AND_TAAMIM = /[\u0591-\u05C7]/g;
+export function stripVowels(value) {
+  if (typeof value !== 'string') return '';
+  return value.replace(NIKUD_AND_TAAMIM, '');
+}
+
 // Parse a verse-range ref like "Genesis 1:1-6:8" or "Numbers 30:2-36:13" into its
 // book name, start chapter, and start verse, so the per-verse refs of a parsha can
 // be reconstructed from the nested text the API returns. Returns null when the ref

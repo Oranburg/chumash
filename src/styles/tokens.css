@@ -7,6 +7,39 @@
   source of truth for visual style. Do not invent a new palette or fonts.
 */
 
+/*
+  Scribal Torah-scroll (STaM) fonts for the scroll hero. These are the Culmus
+  project's "Stam Ashkenaz CLM" and "Stam Sefarad CLM", the open scribal
+  letterforms used for the column-of-the-scroll view. They carry consonants
+  only, which is exactly right: a Torah scroll has no vowels and no cantillation.
+
+  Source: the Culmus project (Yoram Gnat), obtained 2026-06-18 from the
+  aharonium/fonts mirror of the Culmus releases
+  (github.com/aharonium/fonts, under "Culmus Project (GPL and GPL+FE)").
+  License: GNU GPL version 2 with the standard font-embedding exception, so a
+  document that uses or embeds the font is not itself covered by the GPL. The
+  full license text ships beside the files at public/fonts/CULMUS-STAM-LICENSE.txt
+  and public/fonts/GNU-GPL.txt.
+
+  The url() paths are absolute from the site root. Vite prepends the configured
+  base (/chumash/) at build, and serves public/ at the root in dev, so the same
+  declaration resolves in both. The fonts self-host; nothing loads from a CDN.
+*/
+@font-face {
+  font-family: 'Stam Ashkenaz CLM';
+  src: url('/fonts/StamAshkenazCLM.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Stam Sefarad CLM';
+  src: url('/fonts/StamSefaradCLM.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* Brand palette, constant across both modes. */
 :root {
   --blue-deep: #0A3255;
@@ -54,6 +87,16 @@
   /* Gold for the Torah blessings that frame the reading. Tuned to stay legible
      on the navy dark background. */
   --gold: #D4B23C;
+}
+
+/* The parchment panel for the scroll hero. A Torah scroll is cream with dark
+   ink, so the panel keeps these warm tones in both themes; the scroll reads as
+   parchment whether the rest of the app is light or dark. These live outside
+   the theme blocks so they stay constant. */
+:root {
+  --parchment: #F4E8CE;
+  --parchment-edge: #E7D6AE;
+  --parchment-ink: #2A1E0E;
 }
 
 /* Light mode. */
