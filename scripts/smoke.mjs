@@ -118,5 +118,49 @@ try {
   }
 } catch (err) { fail('sefaria.js parsha layer', err.message); }
 
+// 7. The Torah blessings module: both blessings export, verbatim from Sefaria,
+// each beginning the way the source has it and keeping its nikud.
+console.log('\n--- 7. blessings.js (Birkat HaTorah) ---');
+try {
+  const mod = await import('../src/lib/blessings.js');
+  const before = mod.BLESSING_BEFORE;
+  const after = mod.BLESSING_AFTER;
+  typeof before === 'string' && before.length > 0
+    ? pass('BLESSING_BEFORE exports a non-empty string')
+    : fail('BLESSING_BEFORE exports a non-empty string');
+  typeof after === 'string' && after.length > 0
+    ? pass('BLESSING_AFTER exports a non-empty string')
+    : fail('BLESSING_AFTER exports a non-empty string');
+  // The before-blessing is "asher bachar banu"; the after is "asher natan lanu
+  // torat emet". Check the distinguishing word of each, with nikud kept.
+  // "torato" (his Torah) closes the chosen-us clause of the before-blessing and
+  // does not appear in the after-blessing, so it tells the two apart.
+  before && before.includes('תּוֹרָתוֹ')
+    ? pass('BLESSING_BEFORE is the asher-bachar-banu blessing')
+    : fail('BLESSING_BEFORE is the asher-bachar-banu blessing');
+  after && after.includes('אֱמֶת')
+    ? pass('BLESSING_AFTER is the torat-emet blessing')
+    : fail('BLESSING_AFTER is the torat-emet blessing');
+  // Both keep their nikud (a vowel point is present in the U+05B0..U+05BC range).
+  /[ְ-ּ]/.test(before || '')
+    ? pass('BLESSING_BEFORE keeps its nikud')
+    : fail('BLESSING_BEFORE keeps its nikud');
+} catch (err) { fail('blessings.js imports', err.message); }
+
+// 8. The home page wiring: the aliyah-of-the-day hero pulls in the blessings, the
+// flowing column, the word popover, and the day's aliyah text.
+console.log('\n--- 8. ThisWeek home wiring ---');
+try {
+  const src = readFileSync(resolve(root, 'src/pages/ThisWeek.jsx'), 'utf8');
+  src.includes("from '../lib/blessings.js'") ? pass('home imports the blessings') : fail('home imports the blessings');
+  src.includes('BLESSING_BEFORE') && src.includes('BLESSING_AFTER')
+    ? pass('home renders both blessings') : fail('home renders both blessings');
+  src.includes('AliyahColumn') ? pass('home uses AliyahColumn') : fail('home uses AliyahColumn');
+  src.includes('WordPopover') ? pass('home wires WordPopover') : fail('home wires WordPopover');
+  src.includes('getParshaText') ? pass('home fetches the aliyah text') : fail('home fetches the aliyah text');
+  src.includes('ALIYAH_LABELS') ? pass('home labels the aliyah') : fail('home labels the aliyah');
+  src.includes('var(--gold)') ? pass('home styles the blessings in gold') : fail('home styles the blessings in gold');
+} catch (err) { fail('src/pages/ThisWeek.jsx readable', err.message); }
+
 console.log(`\n${passes + failures} checks: ${passes} passed, ${failures} failed`);
 if (failures > 0) process.exit(1);

@@ -1,31 +1,96 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, Library, Minus, Plus } from 'lucide-react';
 import Breadcrumb from '../components/Breadcrumb.jsx';
 import ParshaSummary from '../components/ParshaSummary.jsx';
-import { getThisWeeksParsha } from '../lib/parsha.js';
+import AliyahColumn from '../components/AliyahColumn.jsx';
+import WordPopover from '../components/WordPopover.jsx';
+import { getThisWeeksParsha, ALIYAH_LABELS } from '../lib/parsha.js';
+import { getParshaText } from '../lib/sefaria.js';
 import { readLocale, writeLocale } from '../lib/locale.js';
-import { transliterate } from '../lib/transliterate.js';
+import { BLESSING_BEFORE, BLESSING_AFTER } from '../lib/blessings.js';
 
-// Format a Gregorian date range as "June 14 to 20, 2026", or with both months
-// named when the range crosses a month, in plain house style.
-function formatGregorianRange(start, end) {
-  const month = (d) => d.toLocaleDateString('en-US', { month: 'long' });
-  const sameMonth = start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
-  if (sameMonth) {
-    return `${month(start)} ${start.getDate()} to ${end.getDate()}, ${end.getFullYear()}`;
+// The home page is the aliyah of the day. The Torah blessings frame the reading:
+// the blessing said before the aliyah sits at the top in small gold Hebrew, the
+// day's aliyah runs beneath it as one flowing column, and the blessing said after
+// closes it. The aliyah maps to the weekday, Sunday's reading being the first
+// aliyah (Rishon) and Shabbat's the seventh (Shvi'i). Every word is tappable for a
+// lookup, the same affordance as the reading view. Nothing is generated; on a
+// fetch failure the page reports it and offers a retry rather than a spinner.
+
+const HE_MIN = 22;
+const HE_MAX = 52;
+const HE_SIZE_STORAGE = 'chumash-home-he-size';
+const NUMBERS_STORAGE = 'chumash-home-numbers';
+const TAAMIM_STORAGE = 'chumash-home-taamim';
+const DEFAULT_HE_SIZE = 34;
+
+function readSavedBool(key, fallback) {
+  try {
+    const v = localStorage.getItem(key);
+    if (v === 'on') return true;
+    if (v === 'off') return false;
+  } catch {
+    // localStorage unavailable; use the default.
   }
-  return `${month(start)} ${start.getDate()} to ${month(end)} ${end.getDate()}, ${end.getFullYear()}`;
+  return fallback;
 }
 
-// The home page: this week's portion. It names the parsha in Hebrew, in
-// transliteration, and in English, gives the Gregorian and Hebrew date ranges,
-// lists the seven aliyot and the haftarah, and opens into the reading view.
+function readSavedSize(key, fallback, min, max) {
+  try {
+    const saved = Number(localStorage.getItem(key));
+    if (Number.isFinite(saved) && saved >= min && saved <= max) return saved;
+  } catch {
+    // localStorage unavailable; use the default.
+  }
+  return fallback;
+}
+
+// Pick the aliyah for a given weekday: Sunday (0) reads the first aliyah, through
+// Shabbat (6) the seventh. The index is clamped to the aliyot the week actually
+// carries, so a portion with fewer than seven listed ranges still resolves.
+function aliyahIndexForDate(date, aliyot) {
+  const day = date.getDay();
+  const last = Math.max(0, aliyot.length - 1);
+  return Math.min(day, last);
+}
+
+const blessingStyle = {
+  color: 'var(--gold)',
+  fontSize: '1.05rem',
+  lineHeight: 2,
+  margin: 0,
+  fontWeight: 500,
+};
+
 export default function ThisWeek() {
   const [locale, setLocale] = useState(readLocale);
   const [parsha, setParsha] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // The day's aliyah text, loaded once the parsha resolves.
+  const [aliyah, setAliyah] = useState(null);
+  const [aliyahLoading, setAliyahLoading] = useState(false);
+  const [aliyahError, setAliyahError] = useState(null);
+
+  // Reading controls, mirroring the reading view's patterns.
+  const [showNumbers, setShowNumbers] = useState(() => readSavedBool(NUMBERS_STORAGE, true));
+  const [showTaamim, setShowTaamim] = useState(() => readSavedBool(TAAMIM_STORAGE, false));
+  const [showEnglish, setShowEnglish] = useState(false);
+  const [heSize, setHeSize] = useState(() =>
+    readSavedSize(HE_SIZE_STORAGE, DEFAULT_HE_SIZE, HE_MIN, HE_MAX)
+  );
+
+  // Word lookup, wired exactly as the reading view wires it.
+  const [activeWord, setActiveWord] = useState(null);
+  const openWord = useCallback((word, el) => {
+    const rect = el ? el.getBoundingClientRect() : null;
+    setActiveWord({ word, rect });
+  }, []);
+  const closeWord = useCallback(() => setActiveWord(null), []);
+
+  const today = new Date();
 
   const load = useCallback(async (loc) => {
     setLoading(true);
@@ -44,6 +109,49 @@ export default function ThisWeek() {
   useEffect(() => {
     load(locale);
   }, [load, locale]);
+
+  // Which aliyah today's reading is, once the parsha is known and carries aliyot.
+  const aliyot = parsha && Array.isArray(parsha.aliyot) ? parsha.aliyot : [];
+  const hasAliyot = !parsha?.offline && aliyot.length > 0;
+  const aliyahIndex = hasAliyot ? aliyahIndexForDate(today, aliyot) : -1;
+  const aliyahRef = aliyahIndex >= 0 ? aliyot[aliyahIndex] : null;
+  const aliyahLabel = aliyahIndex >= 0 ? ALIYAH_LABELS[aliyahIndex] || `Aliyah ${aliyahIndex + 1}` : '';
+
+  const loadAliyah = useCallback(async (rangeRef) => {
+    if (!rangeRef) return;
+    setAliyahLoading(true);
+    setAliyahError(null);
+    setActiveWord(null);
+    try {
+      const result = await getParshaText(rangeRef);
+      setAliyah(result);
+    } catch (err) {
+      setAliyahError(err instanceof Error ? err.message : 'Something went wrong.');
+      setAliyah(null);
+    } finally {
+      setAliyahLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (aliyahRef) {
+      loadAliyah(aliyahRef);
+    } else {
+      setAliyah(null);
+      setAliyahError(null);
+    }
+  }, [aliyahRef, loadAliyah]);
+
+  // Persist the reading preferences.
+  useEffect(() => {
+    try { localStorage.setItem(HE_SIZE_STORAGE, String(heSize)); } catch { /* no persistence */ }
+  }, [heSize]);
+  useEffect(() => {
+    try { localStorage.setItem(NUMBERS_STORAGE, showNumbers ? 'on' : 'off'); } catch { /* no persistence */ }
+  }, [showNumbers]);
+  useEffect(() => {
+    try { localStorage.setItem(TAAMIM_STORAGE, showTaamim ? 'on' : 'off'); } catch { /* no persistence */ }
+  }, [showTaamim]);
 
   function changeLocale(loc) {
     writeLocale(loc);
@@ -78,48 +186,66 @@ export default function ThisWeek() {
 
         {!loading && !error && parsha && (
           <article>
-            <p style={{ color: 'var(--muted)', margin: '0 0 var(--space-xs)', fontFamily: 'var(--font-headline)', letterSpacing: '0.04em' }}>
-              This week&rsquo;s portion
-            </p>
-            <h1 className="hebrew" style={{ fontSize: '3rem', color: 'var(--accent-2)', margin: '0 0 var(--space-xs)' }}>
-              {parsha.he || parsha.name}
-            </h1>
-            <p style={{ fontFamily: 'var(--font-headline)', fontSize: '1.4rem', margin: '0 0 var(--space-xs)' }}>
-              {transliterate(parsha.he) && parsha.he ? `${parsha.name} (${transliterate(parsha.he)})` : parsha.name}
-            </p>
-
-            <p style={{ color: 'var(--muted)', margin: '0 0 var(--space-lg)' }}>
-              {formatGregorianRange(parsha.gregorian.start, parsha.gregorian.end)}
-              {'. '}
-              {parsha.hebrewDate.startHe} to {parsha.hebrewDate.endHe}.
-            </p>
-
-            {parsha.description && (
-              <p style={{ fontFamily: 'var(--font-accent)', fontSize: '1.15rem', lineHeight: 1.7 }}>
-                {parsha.description}
-              </p>
-            )}
-
-            {parsha.offline ? (
-              <div className="card" style={{ marginTop: 'var(--space-lg)' }}>
-                <p style={{ margin: 0 }}>
-                  Sefaria could not be reached, so the portion name comes from the
-                  offline calendar. The verses, the aliyot, and the haftarah load
-                  from Sefaria once the connection returns.
-                </p>
-              </div>
+            {parsha.offline || !hasAliyot ? (
+              <OfflineHero parsha={parsha} />
             ) : (
               <>
-                <p style={{ marginTop: 'var(--space-lg)' }}>
-                  <Link
-                    to={`/parsha/${encodeURIComponent(parsha.name)}`}
-                    className="pill-button pill-button--active"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
-                  >
-                    <BookOpen size={18} aria-hidden="true" />
-                    Read {parsha.name}
-                  </Link>
+                <p
+                  className="hebrew"
+                  dir="rtl"
+                  lang="he"
+                  style={{ ...blessingStyle, marginBottom: 'var(--space-lg)' }}
+                >
+                  {BLESSING_BEFORE}
                 </p>
+
+                <p
+                  style={{
+                    color: 'var(--muted)',
+                    fontSize: '0.85rem',
+                    fontFamily: 'var(--font-headline)',
+                    letterSpacing: '0.04em',
+                    margin: '0 0 var(--space-md)',
+                  }}
+                >
+                  {(parsha.he || parsha.name)} {'·'} {aliyahLabel}
+                </p>
+
+                <AliyahBody
+                  aliyah={aliyah}
+                  loading={aliyahLoading}
+                  error={aliyahError}
+                  onRetry={() => loadAliyah(aliyahRef)}
+                  heSize={heSize}
+                  showNumbers={showNumbers}
+                  showTaamim={showTaamim}
+                  showEnglish={showEnglish}
+                  onWordTap={openWord}
+                />
+
+                {aliyah && !aliyahLoading && !aliyahError && (
+                  <p
+                    className="hebrew"
+                    dir="rtl"
+                    lang="he"
+                    style={{ ...blessingStyle, marginTop: 'var(--space-lg)' }}
+                  >
+                    {BLESSING_AFTER}
+                  </p>
+                )}
+
+                <Controls
+                  showNumbers={showNumbers}
+                  setShowNumbers={setShowNumbers}
+                  showTaamim={showTaamim}
+                  setShowTaamim={setShowTaamim}
+                  showEnglish={showEnglish}
+                  setShowEnglish={setShowEnglish}
+                  heSize={heSize}
+                  setHeSize={setHeSize}
+                />
+
+                <OnwardPaths parsha={parsha} />
 
                 <ParshaSummary parsha={parsha} />
               </>
@@ -127,6 +253,224 @@ export default function ThisWeek() {
           </article>
         )}
       </main>
+
+      {activeWord && (
+        <WordPopover word={activeWord.word} anchor={activeWord.rect} onClose={closeWord} />
+      )}
+    </>
+  );
+}
+
+// The aliyah itself: the flowing column when the text is in, the loading and
+// error states when it is not, and the optional English beneath when the reader
+// asks to see it.
+function AliyahBody({
+  aliyah,
+  loading,
+  error,
+  onRetry,
+  heSize,
+  showNumbers,
+  showTaamim,
+  showEnglish,
+  onWordTap,
+}) {
+  if (loading) {
+    return (
+      <p style={{ color: 'var(--muted)' }}>
+        Loading today&rsquo;s aliyah from Sefaria. One moment.
+      </p>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="card">
+        <p>
+          Today&rsquo;s aliyah could not be loaded right now. The app shows only
+          what Sefaria supplies, so there is nothing to display until the
+          connection returns.
+        </p>
+        <p style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>{error}</p>
+        <button type="button" className="pill-button" onClick={onRetry}>
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  if (!aliyah || aliyah.verses.length === 0) {
+    return (
+      <p style={{ color: 'var(--muted)' }}>
+        Sefaria returned no verses for today&rsquo;s aliyah.
+      </p>
+    );
+  }
+
+  return (
+    <>
+      <AliyahColumn
+        verses={aliyah.verses}
+        heSize={heSize}
+        showNumbers={showNumbers}
+        showTaamim={showTaamim}
+        onWordTap={onWordTap}
+      />
+
+      {showEnglish && (
+        <div
+          style={{
+            marginTop: 'var(--space-lg)',
+            paddingTop: 'var(--space-md)',
+            borderTop: '1px solid var(--border)',
+          }}
+        >
+          {aliyah.verses.map((v) =>
+            v.en ? (
+              <p
+                key={v.ref}
+                style={{
+                  fontFamily: 'var(--font-accent)',
+                  fontSize: '1.1rem',
+                  lineHeight: 1.7,
+                  margin: '0 0 var(--space-sm)',
+                }}
+              >
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--muted)', marginRight: '0.4rem' }}>
+                  {v.verse}
+                </span>
+                {v.en}
+              </p>
+            ) : null
+          )}
+        </div>
+      )}
+
+      <p style={{ margin: 'var(--space-md) 0 0', color: 'var(--muted)', fontSize: '0.85rem' }}>
+        {aliyah.ref} (text from Sefaria).
+      </p>
+    </>
+  );
+}
+
+// The quiet controls row: verse numbers, cantillation, the English reveal, and
+// Hebrew size. The reading view's patterns, kept to what the home page needs.
+function Controls({
+  showNumbers,
+  setShowNumbers,
+  showTaamim,
+  setShowTaamim,
+  showEnglish,
+  setShowEnglish,
+  heSize,
+  setHeSize,
+}) {
+  const step = (delta) => setHeSize((s) => Math.min(HE_MAX, Math.max(HE_MIN, s + delta)));
+  return (
+    <div className="card" style={{ marginTop: 'var(--space-lg)' }}>
+      <div style={{ display: 'flex', gap: 'var(--space-xs)', flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          className={showNumbers ? 'pill-button pill-button--active' : 'pill-button'}
+          aria-pressed={showNumbers}
+          onClick={() => setShowNumbers(!showNumbers)}
+        >
+          Verse numbers
+        </button>
+        <button
+          type="button"
+          className={showTaamim ? 'pill-button pill-button--active' : 'pill-button'}
+          aria-pressed={showTaamim}
+          onClick={() => setShowTaamim(!showTaamim)}
+        >
+          Cantillation marks
+        </button>
+        <button
+          type="button"
+          className={showEnglish ? 'pill-button pill-button--active' : 'pill-button'}
+          aria-pressed={showEnglish}
+          onClick={() => setShowEnglish(!showEnglish)}
+        >
+          Show the English
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', marginTop: 'var(--space-md)' }}>
+        <span style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Hebrew size</span>
+        <button
+          type="button"
+          className="icon-button icon-button--sm"
+          onClick={() => step(-2)}
+          aria-label="Shrink the Hebrew"
+        >
+          <Minus size={18} />
+        </button>
+        <button
+          type="button"
+          className="icon-button icon-button--sm"
+          onClick={() => step(2)}
+          aria-label="Grow the Hebrew"
+        >
+          <Plus size={18} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// The two onward paths: into the verse-by-verse study view for the whole portion,
+// and out to the browse-by-book navigation.
+function OnwardPaths({ parsha }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        gap: 'var(--space-sm)',
+        flexWrap: 'wrap',
+        marginTop: 'var(--space-lg)',
+      }}
+    >
+      <Link
+        to={`/parsha/${encodeURIComponent(parsha.name)}`}
+        className="pill-button pill-button--active"
+        style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+      >
+        <BookOpen size={18} aria-hidden="true" />
+        Read the whole portion
+      </Link>
+      <Link
+        to="/browse"
+        className="pill-button"
+        style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+      >
+        <Library size={18} aria-hidden="true" />
+        Browse the books
+      </Link>
+    </div>
+  );
+}
+
+// When Sefaria is unreachable, or the week carries no aliyot breakdown, the page
+// names the portion and says plainly what is missing, then offers the onward
+// paths. It never spins and never invents the text.
+function OfflineHero({ parsha }) {
+  return (
+    <>
+      <h1 className="hebrew" style={{ fontSize: '2.5rem', color: 'var(--accent-2)', margin: '0 0 var(--space-xs)' }}>
+        {parsha.he || parsha.name}
+      </h1>
+      <p style={{ fontFamily: 'var(--font-headline)', fontSize: '1.3rem', margin: '0 0 var(--space-md)' }}>
+        {parsha.name}
+      </p>
+      <div className="card">
+        <p style={{ margin: 0 }}>
+          {parsha.offline
+            ? 'Sefaria could not be reached, so the portion name comes from the offline calendar. The aliyah text and the blessings load from Sefaria once the connection returns.'
+            : 'Sefaria did not return an aliyah breakdown for this week, so there is no single aliyah to show. You can still read the whole portion.'}
+        </p>
+      </div>
+      <OnwardPaths parsha={parsha} />
+      {!parsha.offline && <ParshaSummary parsha={parsha} />}
     </>
   );
 }

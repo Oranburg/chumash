@@ -51,6 +51,9 @@
   --accent: #6DACDE;
   --accent-2: #B5E1E1;
   --accent-red: #B21F2C;
+  /* Gold for the Torah blessings that frame the reading. Tuned to stay legible
+     on the navy dark background. */
+  --gold: #D4B23C;
 }
 
 /* Light mode. */
@@ -64,6 +67,8 @@
   --accent: #2459A9;
   --accent-2: #B5E1E1;
   --accent-red: #B21F2C;
+  /* A deeper gold for the light theme, legible on white. */
+  --gold: #A8841C;
 }
 
 /* Base body styles. Type is set large because the reader is on a phone. */
