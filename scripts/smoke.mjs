@@ -358,6 +358,17 @@ try {
   // The missing-key path points at Settings, not an error.
   panelSrc.includes('noKey') && /to="\/settings"/.test(panelSrc)
     ? pass('missing-key path links to /settings') : fail('missing-key path links to /settings');
+
+  // The home page surfaces the partner on the day's aliyah through one entry
+  // (AliyahHavruta), which reuses the same per-verse VerseHavruta panel.
+  const homePartnerSrc = readFileSync(resolve(root, 'src/components/AliyahHavruta.jsx'), 'utf8');
+  homePartnerSrc.includes('VerseHavruta')
+    ? pass('home partner reuses the per-verse panel') : fail('home partner reuses the per-verse panel');
+  /Study .* with your havruta/.test(homePartnerSrc)
+    ? pass('home partner has the labeled aliyah action') : fail('home partner has the labeled aliyah action');
+  const homeSrc15 = readFileSync(resolve(root, 'src/pages/ThisWeek.jsx'), 'utf8');
+  homeSrc15.includes('AliyahHavruta')
+    ? pass('home page wires the aliyah partner entry') : fail('home page wires the aliyah partner entry');
 } catch (err) { fail('per-verse action + gate', err.message); }
 
 // 16. The shnayim mikra tracker: the library keys the record per parsha, carries

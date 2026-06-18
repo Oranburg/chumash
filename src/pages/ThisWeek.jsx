@@ -8,6 +8,7 @@ import StudyTable from '../components/StudyTable.jsx';
 import WordPopover from '../components/WordPopover.jsx';
 import ShnayimMikraTracker from '../components/ShnayimMikraTracker.jsx';
 import LeyningPlayer from '../components/LeyningPlayer.jsx';
+import AliyahHavruta from '../components/AliyahHavruta.jsx';
 import { getThisWeeksParsha, ALIYAH_LABELS } from '../lib/parsha.js';
 import { getParshaText } from '../lib/sefaria.js';
 import { readLocale, writeLocale } from '../lib/locale.js';
@@ -355,6 +356,16 @@ export default function ThisWeek() {
                   heSize={heSize}
                   setHeSize={setHeSize}
                 />
+
+                {aliyah && !aliyahLoading && !aliyahError && aliyahIndex >= 0 && (
+                  <AliyahHavruta
+                    aliyah={aliyah}
+                    aliyahLabel={aliyahLabel}
+                    showTaamim={showTaamim}
+                    heSize={heSize}
+                    onWordTap={openWord}
+                  />
+                )}
 
                 <ShnayimMikraTracker
                   aliyahLabel={aliyahLabel}
