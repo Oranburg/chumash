@@ -1,24 +1,11 @@
 # Roadmap
 
-From an inherited scaffold to a working weekly-parsha companion, in phases that each end in something usable. The full version is in `docs/ROADMAP.md`.
+The project moved from an inherited scaffold to a working weekly-parsha companion in phases. As of the 2026-06-18 audit every phase shipped and is live at https://oranburg.law/chumash/. See [[Status]] for the current feature-by-feature state and `docs/ROADMAP.md` for the repository copy. This page is the record of the plan and how it was met.
 
-## Phase 0, done
-The scaffold: havruta's toolchain, Sefaria client, transliteration engine, study-partner libraries, design system, and PWA shell, copied and adapted to the `/chumash/` deploy. The Torah structure is in `src/lib/parsha.js`. The parsha experience is not built.
-
-## Phase 1, next: the calendar engine
-Resolve the parsha of the week from Sefaria's calendars API with an `@hebcal/core` fallback, including the haftarah and the Israel/Diaspora locale. This unblocks everything else (#1).
-
-## Phase 2: the this-week home and the reading view
-The home screen for this week's portion, and the parallel reading view of Hebrew, Targum, and translation, with the translation-tap and transliteration carried over and Rashi as a layer (#2, #3).
-
-## Phase 3: the study rhythm
-Aliyah-a-day and the shnayim mikra tracker, the per-verse read-twice-and-Targum progress structure (#4, #6).
-
-## Phase 4: the haftarah and the page image
-The haftarah view with its connection note, and the Mikraot Gedolot page image (#5, #7).
-
-## Phase 5: the study partner
-The AI chevruta adapted to the parsha, reusing the partner libraries (#8).
-
-## Phase 6: polish and ship
-Offline, install prompt, settings, and the deploy (#9).
+- **Phase 0, done.** The scaffold: the toolchain, Sefaria client, transliteration engine, study-partner libraries, design system, PWA shell, and the Torah structure in `src/lib/parsha.js`.
+- **Phase 1, done.** The calendar engine: the parsha of the week from Sefaria's calendars API with an `@hebcal/core` fallback, the haftarah, and the locale (#1).
+- **Phase 2, done.** The this-week home and the verse-by-verse reading view with the translation compare and the classical commentaries (#2, #3).
+- **Phase 3, done.** The study rhythm: aliyah-a-day and the shnayim mikra tracker (#4, #6).
+- **Phase 4, done.** The haftarah reading, plus the scroll hero in the Culmus STaM scribal letterforms as the visual anchor in place of a literal manuscript page scan. The haftarah connection note and a literal manuscript image remain future items (#5, #7).
+- **Phase 5, done.** The AI study partner at the verse level, human-acts-first and tool-only never-invent, reachable per verse and from the home page (#8).
+- **Phase 6, done.** Offline behavior, the install prompt, Settings, the service-worker self-heal, and the GitHub Pages deploy (#9). The build shell later moved to Astro.

@@ -1,31 +1,31 @@
 # Roadmap
 
-The project moves from an inherited scaffold to a working weekly-parsha companion, in phases that each end in something usable.
+The project moved from an inherited scaffold to a working weekly-parsha companion in phases. As of the 2026-06-18 audit, every phase below shipped and is live at https://oranburg.law/chumash/. For the current feature-by-feature state see `docs/STATUS.md`; for the milestones see `CHANGELOG.md`. This file is kept as the record of the plan and how it was met.
 
 ## Phase 0, done
 
-The scaffold: havruta's toolchain, Sefaria client, transliteration engine, study-partner libraries, design system, and PWA shell copied and adapted to the `/chumash/` deploy. The Torah structure (books, the fifty-four portions, doubled pairs, aliyah labels) is in `src/lib/parsha.js`. The parsha experience is not built.
+The scaffold: the toolchain, Sefaria client, transliteration engine, study-partner libraries, design system, and PWA shell, adapted to the `/chumash/` deploy. The Torah structure (books, the fifty-four portions, doubled pairs, aliyah labels) is in `src/lib/parsha.js`.
 
-## Phase 1, next: the calendar engine
+## Phase 1, done: the calendar engine
 
-Resolve the parsha of the week from Sefaria's calendars API with an `@hebcal/core` fallback, including the haftarah and the Israel/Diaspora locale. This unblocks everything else. (Issue #1.)
+The parsha of the week resolves from Sefaria's calendars API with an `@hebcal/core` fallback, including the haftarah and the Israel or Diaspora locale. `getThisWeeksParsha` in `src/lib/parsha.js`. (Issue #1.)
 
-## Phase 2: the this-week home and the reading view
+## Phase 2, done: the this-week home and the reading view
 
-A home screen that shows this week's parsha (Hebrew, transliteration, translation, dates, the seven aliyot, the haftarah), and a parallel reading view of Hebrew, Targum, and translation with the translation-tap and transliteration carried over, and Rashi as an expandable layer. (Issues #2, #3.)
+The home screen shows this week's parsha, and the reading view opens each verse with its Hebrew, the translation compare, and the classical commentaries. `src/pages/ThisWeek.jsx`, `src/components/ParshaReader.jsx`, `src/components/VerseCommentary.jsx`, `src/components/TranslationCompare.jsx`. (Issues #2, #3.)
 
-## Phase 3: the study rhythm
+## Phase 3, done: the study rhythm
 
-Aliyah-a-day, so the weekly portion has a daily cadence, and the shnayim mikra tracker, the per-verse read-twice-and-Targum progress structure. (Issues #4, #6.)
+Aliyah-a-day, so the weekly portion has a daily cadence, and the shnayim mikra tracker. `src/components/ShnayimMikraTracker.jsx`, `src/lib/shnayimMikra.js`. (Issues #4, #6.)
 
-## Phase 4: the haftarah and the page image
+## Phase 4, done: the haftarah and the visual anchor
 
-The haftarah view with its connection note, and the Mikraot Gedolot page image as the visual anchor. (Issues #5, #7.)
+The haftarah reading shipped (`src/pages/Haftarah.jsx`). For the visual anchor, the home page renders the day's aliyah in the Culmus STaM scribal letterforms (`src/components/ScrollColumn.jsx`) rather than a literal manuscript page scan, since Sefaria's Torah manuscript coverage is uneven; the per-verse commentary apparatus provides the text-flanked-by-commentators function. The haftarah thematic connection note (authored content Sefaria does not supply) and a literal manuscript image remain future items. (Issues #5, #7.)
 
-## Phase 5: the study partner
+## Phase 5, done: the study partner
 
-The AI chevruta adapted to the parsha, reusing the partner libraries: discuss a verse, a Rashi, a thematic question, without handing over the answer. (Issue #8.)
+The AI havruta works at the verse level, with the human-acts-first gate and tool-only, never-invent quoting from Sefaria. Reachable per verse and from the home page. `src/components/VerseHavruta.jsx`, `src/components/AliyahHavruta.jsx`, `src/lib/partner.js`. (Issue #8.)
 
-## Phase 6: polish and ship
+## Phase 6, done: polish and ship
 
-Offline behavior, install prompt, settings (locale, rite, theme), and the deploy. (Issue #9.)
+Offline behavior, the install prompt, Settings (locale, rite, theme, partner key), the service-worker self-heal, and the GitHub Pages deploy. (Issue #9.) The build shell later moved to Astro, with the React app mounting as a `client:only` island.
