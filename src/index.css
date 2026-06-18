@@ -472,3 +472,50 @@
   font-size: 1.5rem;
   line-height: 1.9;
 }
+
+/* The aliyah shown side by side: transliteration on the left, Hebrew on the
+   right, each verse its own row. On a narrow screen the row stacks, with the
+   Hebrew on top and the transliteration beneath it. The DOM order is Hebrew
+   first, so the stacked phone layout reads Hebrew then transliteration with no
+   reordering, while the grid places the Hebrew in the right column on wide. */
+.aliyah-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+  align-items: start;
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--border);
+}
+.aliyah-pair .pair-hebrew {
+  grid-column: 2;
+  direction: rtl;
+  text-align: right;
+}
+.aliyah-pair .pair-translit {
+  grid-column: 1;
+  direction: ltr;
+  text-align: left;
+  color: var(--muted);
+  font-family: var(--font-body);
+  line-height: 1.7;
+}
+.aliyah-pair .pair-num {
+  font-family: var(--font-mono);
+  font-size: 0.72em;
+  color: var(--muted);
+  opacity: 0.75;
+  margin-inline-end: 0.35em;
+}
+@media (max-width: 640px) {
+  .aliyah-pair {
+    grid-template-columns: 1fr;
+    gap: var(--space-xs);
+  }
+  .aliyah-pair .pair-hebrew,
+  .aliyah-pair .pair-translit {
+    grid-column: 1;
+  }
+  .aliyah-pair .pair-translit {
+    padding-top: var(--space-xs);
+  }
+}

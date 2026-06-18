@@ -4,9 +4,11 @@ import { BookOpen, Library, Minus, Plus } from 'lucide-react';
 import Breadcrumb from '../components/Breadcrumb.jsx';
 import ParshaSummary from '../components/ParshaSummary.jsx';
 import AliyahColumn from '../components/AliyahColumn.jsx';
+import TappableHebrew from '../components/TappableHebrew.jsx';
 import WordPopover from '../components/WordPopover.jsx';
 import { getThisWeeksParsha, ALIYAH_LABELS } from '../lib/parsha.js';
-import { getParshaText } from '../lib/sefaria.js';
+import { getParshaText, stripCantillation } from '../lib/sefaria.js';
+import { transliterate } from '../lib/transliterate.js';
 import { readLocale, writeLocale } from '../lib/locale.js';
 import { BLESSING_BEFORE, BLESSING_AFTER } from '../lib/blessings.js';
 
@@ -23,7 +25,21 @@ const HE_MAX = 52;
 const HE_SIZE_STORAGE = 'chumash-home-he-size';
 const NUMBERS_STORAGE = 'chumash-home-numbers';
 const TAAMIM_STORAGE = 'chumash-home-taamim';
+const TRANSLIT_STORAGE = 'chumash-home-translit';
 const DEFAULT_HE_SIZE = 34;
+
+// The flowing transliteration of a verse: the Hebrew without cantillation, each
+// word romanized and rejoined as one readable line, so a reader can sound the
+// verse out without the interlinear stacking. It is exact, not a translation, so
+// it does not mislead.
+function transliterateVerse(he) {
+  return stripCantillation(he)
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => transliterate(w) || w)
+    .join(' ')
+    .trim();
+}
 
 function readSavedBool(key, fallback) {
   try {
@@ -77,6 +93,7 @@ export default function ThisWeek() {
   // Reading controls, mirroring the reading view's patterns.
   const [showNumbers, setShowNumbers] = useState(() => readSavedBool(NUMBERS_STORAGE, true));
   const [showTaamim, setShowTaamim] = useState(() => readSavedBool(TAAMIM_STORAGE, false));
+  const [showTranslit, setShowTranslit] = useState(() => readSavedBool(TRANSLIT_STORAGE, false));
   const [showEnglish, setShowEnglish] = useState(false);
   const [heSize, setHeSize] = useState(() =>
     readSavedSize(HE_SIZE_STORAGE, DEFAULT_HE_SIZE, HE_MIN, HE_MAX)
@@ -152,6 +169,9 @@ export default function ThisWeek() {
   useEffect(() => {
     try { localStorage.setItem(TAAMIM_STORAGE, showTaamim ? 'on' : 'off'); } catch { /* no persistence */ }
   }, [showTaamim]);
+  useEffect(() => {
+    try { localStorage.setItem(TRANSLIT_STORAGE, showTranslit ? 'on' : 'off'); } catch { /* no persistence */ }
+  }, [showTranslit]);
 
   function changeLocale(loc) {
     writeLocale(loc);
@@ -219,6 +239,7 @@ export default function ThisWeek() {
                   heSize={heSize}
                   showNumbers={showNumbers}
                   showTaamim={showTaamim}
+                  showTranslit={showTranslit}
                   showEnglish={showEnglish}
                   onWordTap={openWord}
                 />
@@ -239,6 +260,8 @@ export default function ThisWeek() {
                   setShowNumbers={setShowNumbers}
                   showTaamim={showTaamim}
                   setShowTaamim={setShowTaamim}
+                  showTranslit={showTranslit}
+                  setShowTranslit={setShowTranslit}
                   showEnglish={showEnglish}
                   setShowEnglish={setShowEnglish}
                   heSize={heSize}
@@ -272,6 +295,7 @@ function AliyahBody({
   heSize,
   showNumbers,
   showTaamim,
+  showTranslit,
   showEnglish,
   onWordTap,
 }) {
@@ -309,13 +333,33 @@ function AliyahBody({
 
   return (
     <>
-      <AliyahColumn
-        verses={aliyah.verses}
-        heSize={heSize}
-        showNumbers={showNumbers}
-        showTaamim={showTaamim}
-        onWordTap={onWordTap}
-      />
+      {showTranslit ? (
+        <div>
+          {aliyah.verses.map((v) => {
+            const he = showTaamim ? v.he : stripCantillation(v.he);
+            const t = transliterateVerse(v.he);
+            return (
+              <div key={v.ref} className="aliyah-pair">
+                <div className="pair-hebrew">
+                  {showNumbers && (
+                    <sup className="pair-num" aria-hidden="true">{v.verse}</sup>
+                  )}
+                  <TappableHebrew html={he} fontSize={heSize} onWordTap={onWordTap} showTranslit={false} />
+                </div>
+                <div className="pair-translit">{t}</div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <AliyahColumn
+          verses={aliyah.verses}
+          heSize={heSize}
+          showNumbers={showNumbers}
+          showTaamim={showTaamim}
+          onWordTap={onWordTap}
+        />
+      )}
 
       {showEnglish && (
         <div
@@ -360,6 +404,8 @@ function Controls({
   setShowNumbers,
   showTaamim,
   setShowTaamim,
+  showTranslit,
+  setShowTranslit,
   showEnglish,
   setShowEnglish,
   heSize,
@@ -384,6 +430,14 @@ function Controls({
           onClick={() => setShowTaamim(!showTaamim)}
         >
           Cantillation marks
+        </button>
+        <button
+          type="button"
+          className={showTranslit ? 'pill-button pill-button--active' : 'pill-button'}
+          aria-pressed={showTranslit}
+          onClick={() => setShowTranslit(!showTranslit)}
+        >
+          Transliteration
         </button>
         <button
           type="button"
