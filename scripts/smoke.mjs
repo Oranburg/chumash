@@ -360,5 +360,102 @@ try {
     ? pass('missing-key path links to /settings') : fail('missing-key path links to /settings');
 } catch (err) { fail('per-verse action + gate', err.message); }
 
+// 16. The shnayim mikra tracker: the library keys the record per parsha, carries
+// exactly three marks per aliyah, toggles without mutating, and resets cleanly to
+// a new portion. The storage access is wrapped so it degrades where unavailable.
+console.log('\n--- 16. shnayim mikra tracker ---');
+try {
+  const mod = await import('../src/lib/shnayimMikra.js');
+  // Exactly three marks per aliyah, in the practice's order.
+  Array.isArray(mod.MARKS) && mod.MARKS.length === 3
+    ? pass('tracker carries three marks per aliyah') : fail('tracker carries three marks per aliyah', `got ${mod.MARKS?.length}`);
+  const ids = (mod.MARKS || []).map((m) => m.id);
+  JSON.stringify(ids) === JSON.stringify(['hebrew1', 'hebrew2', 'onkelos'])
+    ? pass('the three marks are hebrew1, hebrew2, onkelos') : fail('the three marks are hebrew1, hebrew2, onkelos', ids.join(','));
+  // The storage key is keyed per parsha by the portion's verse ref, so each week
+  // is its own record and a new portion resets cleanly.
+  const k1 = mod.storageKey('Numbers 16:1-18:32');
+  const k2 = mod.storageKey('Genesis 1:1-6:8');
+  k1 !== k2 && k1.startsWith('chumash-shnayim-') && k1.includes('Numbers 16:1-18:32')
+    ? pass('storage key is per-parsha and chumash- prefixed') : fail('storage key is per-parsha and chumash- prefixed', k1);
+  // toggleMark does not mutate the record passed in and flips one mark.
+  const before = {};
+  const after = mod.toggleMark(before, 0, 'hebrew1');
+  Object.keys(before).length === 0 && after[0] && after[0].hebrew1 === true
+    ? pass('toggleMark sets a mark without mutating the input') : fail('toggleMark sets a mark without mutating the input');
+  const off = mod.toggleMark(after, 0, 'hebrew1');
+  !off[0].hebrew1 ? pass('toggleMark clears a set mark') : fail('toggleMark clears a set mark');
+  // marksDone and overallProgress count correctly.
+  const rec = { 0: { hebrew1: true, hebrew2: true, onkelos: true }, 1: { hebrew1: true } };
+  mod.marksDone(rec, 0) === 3 ? pass('marksDone counts a full aliyah') : fail('marksDone counts a full aliyah', mod.marksDone(rec, 0));
+  const ov = mod.overallProgress(rec, 7);
+  ov.done === 4 && ov.total === 21
+    ? pass('overallProgress totals three marks per aliyah') : fail('overallProgress totals three marks per aliyah', `${ov.done}/${ov.total}`);
+  // The storage access is wrapped in try/catch so it degrades gracefully.
+  const libSrc = readFileSync(resolve(root, 'src/lib/shnayimMikra.js'), 'utf8');
+  /try\s*{[\s\S]*localStorage[\s\S]*}\s*catch/.test(libSrc)
+    ? pass('tracker wraps localStorage in try/catch') : fail('tracker wraps localStorage in try/catch');
+} catch (err) { fail('shnayim mikra tracker', err.message); }
+
+// 17. The tracker component and its wiring into the home page: three checkboxes
+// for the chosen aliyah, the overall count, and the toggle handler.
+console.log('\n--- 17. tracker component + home wiring ---');
+try {
+  const compSrc = readFileSync(resolve(root, 'src/components/ShnayimMikraTracker.jsx'), 'utf8');
+  /type="checkbox"/.test(compSrc) ? pass('tracker renders checkboxes') : fail('tracker renders checkboxes');
+  compSrc.includes('onToggle') ? pass('tracker calls back to toggle a mark') : fail('tracker calls back to toggle a mark');
+  /Shnayim mikra/i.test(compSrc) ? pass('tracker names the practice') : fail('tracker names the practice');
+
+  const homeSrc = readFileSync(resolve(root, 'src/pages/ThisWeek.jsx'), 'utf8');
+  homeSrc.includes('ShnayimMikraTracker') ? pass('home renders the tracker') : fail('home renders the tracker');
+  homeSrc.includes("from '../lib/shnayimMikra.js'") ? pass('home imports the tracker library') : fail('home imports the tracker library');
+  // The record is keyed on the portion's ref and reset when the portion changes.
+  homeSrc.includes('readProgress(parshaRef)') ? pass('home reads the per-parsha record') : fail('home reads the per-parsha record');
+  homeSrc.includes('writeProgress(parshaRef') ? pass('home persists the per-parsha record') : fail('home persists the per-parsha record');
+  /\[parshaRef\]/.test(homeSrc) ? pass('the record effect is keyed on the portion ref') : fail('the record effect is keyed on the portion ref');
+} catch (err) { fail('tracker component + home wiring', err.message); }
+
+// 18. Aliyah-a-day: the week of aliyot is presented, today's is marked, any
+// aliyah is reachable, and selecting one drives the reading. The reading view is
+// no longer pinned to today's weekday alone.
+console.log('\n--- 18. aliyah-a-day week view ---');
+try {
+  const homeSrc = readFileSync(resolve(root, 'src/pages/ThisWeek.jsx'), 'utf8');
+  homeSrc.includes('AliyahWeek') ? pass('home renders the week of aliyot') : fail('home renders the week of aliyot');
+  homeSrc.includes('aliyahIndexForDate') ? pass('home still maps the weekday to the day aliyah') : fail('home still maps the weekday to the day aliyah');
+  // A selectable index lets the learner jump to any aliyah, and it falls back to
+  // the day's aliyah when nothing is chosen.
+  homeSrc.includes('selectedIndex') ? pass('home carries a selectable aliyah index') : fail('home carries a selectable aliyah index');
+  homeSrc.includes('todayIndex') ? pass('home distinguishes today from the chosen aliyah') : fail('home distinguishes today from the chosen aliyah');
+  // The week view maps over the aliyot by their actual length (handles a doubled
+  // portion that carries more than seven ranges) rather than assuming seven.
+  /aliyot\.map\(/.test(homeSrc) ? pass('the week view maps the aliyot by their actual length') : fail('the week view maps the aliyot by their actual length');
+} catch (err) { fail('aliyah-a-day week view', err.message); }
+
+// 19. The haftarah route and page: a route reaches the haftarah, the page reuses
+// the reading view, loads via getParshaText (through ParshaReader), and reports a
+// failure with a retry rather than inventing a reading.
+console.log('\n--- 19. haftarah route + page ---');
+try {
+  const appSrc = readFileSync(resolve(root, 'src/App.jsx'), 'utf8');
+  appSrc.includes('path="/haftarah"') ? pass('haftarah route registered') : fail('haftarah route registered');
+  appSrc.includes("import Haftarah from './pages/Haftarah.jsx'") ? pass('App imports the Haftarah page') : fail('App imports the Haftarah page');
+
+  const hafSrc = readFileSync(resolve(root, 'src/pages/Haftarah.jsx'), 'utf8');
+  // Reuses the reading view, which loads through getParshaText.
+  hafSrc.includes('ParshaReader') ? pass('haftarah reuses the ParshaReader') : fail('haftarah reuses the ParshaReader');
+  hafSrc.includes('getThisWeeksParsha') ? pass('haftarah resolves the week to get its haftarah ref') : fail('haftarah resolves the week to get its haftarah ref');
+  // The haftarah ref is read off the parsha record's haftarah object.
+  hafSrc.includes('haftarah.ref') ? pass('haftarah reads the ref off the haftarah object') : fail('haftarah reads the ref off the haftarah object');
+  hafSrc.includes('Try again') ? pass('haftarah offers a retry on failure') : fail('haftarah offers a retry on failure');
+  // ParshaReader loads through getParshaText, the path haftarot ride on.
+  const readerSrc = readFileSync(resolve(root, 'src/components/ParshaReader.jsx'), 'utf8');
+  readerSrc.includes('getParshaText') ? pass('the reading view loads the ref through getParshaText') : fail('the reading view loads the ref through getParshaText');
+
+  // The home page offers a path to the haftarah.
+  const homeSrc = readFileSync(resolve(root, 'src/pages/ThisWeek.jsx'), 'utf8');
+  /to="\/haftarah"/.test(homeSrc) ? pass('home links to the haftarah') : fail('home links to the haftarah');
+} catch (err) { fail('haftarah route + page', err.message); }
+
 console.log(`\n${passes + failures} checks: ${passes} passed, ${failures} failed`);
 if (failures > 0) process.exit(1);

@@ -1,15 +1,24 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, Library, Minus, Plus } from 'lucide-react';
+import { BookOpen, Library, Minus, Plus, ScrollText } from 'lucide-react';
 import Breadcrumb from '../components/Breadcrumb.jsx';
 import ParshaSummary from '../components/ParshaSummary.jsx';
 import ScrollColumn from '../components/ScrollColumn.jsx';
 import StudyTable from '../components/StudyTable.jsx';
 import WordPopover from '../components/WordPopover.jsx';
+import ShnayimMikraTracker from '../components/ShnayimMikraTracker.jsx';
 import { getThisWeeksParsha, ALIYAH_LABELS } from '../lib/parsha.js';
 import { getParshaText } from '../lib/sefaria.js';
 import { readLocale, writeLocale } from '../lib/locale.js';
 import { BLESSING_BEFORE, BLESSING_AFTER } from '../lib/blessings.js';
+import {
+  readProgress,
+  writeProgress,
+  toggleMark,
+  marksDone,
+  overallProgress,
+  MARKS,
+} from '../lib/shnayimMikra.js';
 
 // The home page is the aliyah of the day, and the first thing the reader sees is
 // the scroll. The day's aliyah renders as a column of a sefer Torah: the scribal
@@ -90,10 +99,21 @@ export default function ThisWeek() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // The day's aliyah text, loaded once the parsha resolves.
+  // The aliyah text, loaded once the parsha resolves and an aliyah is chosen.
   const [aliyah, setAliyah] = useState(null);
   const [aliyahLoading, setAliyahLoading] = useState(false);
   const [aliyahError, setAliyahError] = useState(null);
+
+  // The aliyah the reader is looking at. It starts at the day's aliyah (Sunday's
+  // Rishon through Shabbat's last), but the reader can jump to any aliyah in the
+  // week; nothing is gated. A null index means "not chosen yet", which resolves
+  // to the day's aliyah once the parsha and its aliyot are known.
+  const [selectedIndex, setSelectedIndex] = useState(null);
+
+  // The shnayim mikra record for this week's portion, keyed by its verse ref so
+  // it resets cleanly to each new parsha. It is the learner's own record of
+  // reading each aliyah twice in Hebrew and once in Onkelos.
+  const [progress, setProgress] = useState({});
 
   // The view: the scroll hero by default, the study table on a toggle.
   const [view, setView] = useState(() =>
@@ -142,9 +162,42 @@ export default function ThisWeek() {
   // Which aliyah today's reading is, once the parsha is known and carries aliyot.
   const aliyot = parsha && Array.isArray(parsha.aliyot) ? parsha.aliyot : [];
   const hasAliyot = !parsha?.offline && aliyot.length > 0;
-  const aliyahIndex = hasAliyot ? aliyahIndexForDate(today, aliyot) : -1;
+  const todayIndex = hasAliyot ? aliyahIndexForDate(today, aliyot) : -1;
+  // The verse ref of the whole portion keys the week's record. A doubled portion
+  // carries its own combined ref, so the record still resets to each new reading.
+  const parshaRef = parsha ? parsha.ref : null;
+
+  // The aliyah the reader is actually viewing: the chosen one if it is in range,
+  // otherwise the day's aliyah. Selecting an aliyah never gates the others.
+  const aliyahIndex =
+    hasAliyot && selectedIndex != null && selectedIndex >= 0 && selectedIndex < aliyot.length
+      ? selectedIndex
+      : todayIndex;
   const aliyahRef = aliyahIndex >= 0 ? aliyot[aliyahIndex] : null;
   const aliyahLabel = aliyahIndex >= 0 ? ALIYAH_LABELS[aliyahIndex] || `Aliyah ${aliyahIndex + 1}` : '';
+
+  // Load the week's shnayim mikra record when the portion changes (keyed on the
+  // portion's verse ref), and clear any aliyah selection so the new week opens on
+  // the day's aliyah. Keyed on the stable parshaRef, not on the record it sets.
+  useEffect(() => {
+    setProgress(parshaRef ? readProgress(parshaRef) : {});
+    setSelectedIndex(null);
+  }, [parshaRef]);
+
+  // Persist the record whenever it changes, under the portion's key.
+  const onToggleMark = useCallback(
+    (markId) => {
+      if (aliyahIndex < 0 || !parshaRef) return;
+      setProgress((prev) => {
+        const next = toggleMark(prev, aliyahIndex, markId);
+        writeProgress(parshaRef, next);
+        return next;
+      });
+    },
+    [aliyahIndex, parshaRef]
+  );
+
+  const overall = overallProgress(progress, aliyot.length);
 
   const loadAliyah = useCallback(async (rangeRef) => {
     if (!rangeRef) return;
@@ -244,7 +297,18 @@ export default function ThisWeek() {
                   }}
                 >
                   {(parsha.he || parsha.name)} {'·'} {aliyahLabel}
+                  {selectedIndex != null && selectedIndex !== todayIndex
+                    ? ' (jumped from today)'
+                    : ''}
                 </p>
+
+                <AliyahWeek
+                  aliyot={aliyot}
+                  todayIndex={todayIndex}
+                  selectedIndex={aliyahIndex}
+                  progress={progress}
+                  onSelect={setSelectedIndex}
+                />
 
                 <AliyahBody
                   aliyah={aliyah}
@@ -281,6 +345,14 @@ export default function ThisWeek() {
                   setShowTaamim={setShowTaamim}
                   heSize={heSize}
                   setHeSize={setHeSize}
+                />
+
+                <ShnayimMikraTracker
+                  aliyahLabel={aliyahLabel}
+                  marks={MARKS}
+                  done={progress[aliyahIndex] || {}}
+                  onToggle={onToggleMark}
+                  overall={overall}
                 />
 
                 <OnwardPaths parsha={parsha} />
@@ -500,6 +572,14 @@ function OnwardPaths({ parsha }) {
         Read the whole portion
       </Link>
       <Link
+        to="/haftarah"
+        className="pill-button"
+        style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+      >
+        <ScrollText size={18} aria-hidden="true" />
+        Read the haftarah
+      </Link>
+      <Link
         to="/browse"
         className="pill-button"
         style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
@@ -508,6 +588,50 @@ function OnwardPaths({ parsha }) {
         Browse the books
       </Link>
     </div>
+  );
+}
+
+// The week as seven aliyot (and a maftir where the portion carries one). Each
+// aliyah is a button: today's is marked, the one being read is pressed, and each
+// carries its shnayim mikra count so the reader sees at a glance how far the
+// reading has gone. Selecting one jumps the reading to it; nothing is gated, so
+// any aliyah stays reachable on any day.
+function AliyahWeek({ aliyot, todayIndex, selectedIndex, progress, onSelect }) {
+  if (!Array.isArray(aliyot) || aliyot.length === 0) return null;
+  return (
+    <section style={{ marginBottom: 'var(--space-lg)' }}>
+      <p style={{ color: 'var(--muted)', fontSize: '0.85rem', margin: '0 0 var(--space-sm)' }}>
+        The portion across the week. Today&rsquo;s aliyah is marked. You can read
+        any aliyah on any day.
+      </p>
+      <div
+        role="group"
+        aria-label="The week's aliyot"
+        style={{ display: 'flex', gap: 'var(--space-xs)', flexWrap: 'wrap' }}
+      >
+        {aliyot.map((ref, i) => {
+          const label = ALIYAH_LABELS[i] || `Aliyah ${i + 1}`;
+          const count = marksDone(progress, i);
+          const isToday = i === todayIndex;
+          const isActive = i === selectedIndex;
+          return (
+            <button
+              key={ref || i}
+              type="button"
+              className={isActive ? 'pill-button pill-button--active' : 'pill-button'}
+              aria-pressed={isActive}
+              onClick={() => onSelect(i)}
+              style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '0.1rem', lineHeight: 1.2 }}
+            >
+              <span>{label}{isToday ? ' (today)' : ''}</span>
+              <span style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>
+                {count} of {MARKS.length}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 

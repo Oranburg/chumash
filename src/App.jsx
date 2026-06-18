@@ -3,6 +3,7 @@ import { HashRouter, Routes, Route, NavLink, Link } from 'react-router-dom';
 import { Sun, Moon, CalendarDays, Library, Settings as SettingsIcon } from 'lucide-react';
 
 import ThisWeek from './pages/ThisWeek.jsx';
+import Haftarah from './pages/Haftarah.jsx';
 import Reading from './pages/Reading.jsx';
 import Browse from './pages/Browse.jsx';
 import Settings from './pages/Settings.jsx';
@@ -90,6 +91,7 @@ export default function App() {
         <div style={{ flex: '1 1 auto' }}>
           <Routes>
             <Route path="/" element={<ThisWeek />} />
+            <Route path="/haftarah" element={<Haftarah />} />
             <Route path="/browse" element={<Browse />} />
             <Route path="/parsha/:name" element={<Reading />} />
             <Route path="/settings" element={<Settings />} />
