@@ -222,5 +222,50 @@ try {
     ? pass('font license is GPL with the font exception') : fail('font license is GPL with the font exception');
 } catch (err) { fail('STaM font files + license', err.message); }
 
+// 12. The per-verse classical commentary: the data function exists and filters
+// to exactly the six target parshanim, and the panel lazy-loads with explicit
+// loading, error, empty, and done states, keyed on stable inputs (not on the
+// status it sets) so React 18 StrictMode's double-invoke still resolves.
+console.log('\n--- 12. per-verse commentary ---');
+try {
+  const mod = await import('../src/lib/sefaria.js');
+  typeof mod.getVerseCommentaries === 'function'
+    ? pass('getVerseCommentaries is a function') : fail('getVerseCommentaries is a function');
+
+  const libSrc = readFileSync(resolve(root, 'src/lib/sefaria.js'), 'utf8');
+  // The six commentators are named, in the fixed order, and the function filters
+  // to them rather than passing every linked work through.
+  ['Onkelos', 'Rashi', 'Rashbam', 'Ibn Ezra', 'Ramban', 'Sforno']
+    .forEach((name) => {
+      libSrc.includes(`'${name}'`) ? pass(`commentary filters in ${name}`) : fail(`commentary filters in ${name}`);
+    });
+  libSrc.includes('with_text=1')
+    ? pass('commentary fetches link text inline (with_text=1)') : fail('commentary fetches link text inline (with_text=1)');
+
+  const compSrc = readFileSync(resolve(root, 'src/components/VerseCommentary.jsx'), 'utf8');
+  // Lazy load: the fetch fires only when the panel is open.
+  compSrc.includes('getVerseCommentaries')
+    ? pass('panel calls getVerseCommentaries') : fail('panel calls getVerseCommentaries');
+  /if\s*\(!open\)\s*return/.test(compSrc)
+    ? pass('panel load effect lazy-loads on open') : fail('panel load effect lazy-loads on open');
+  // The four explicit states a reader can land in.
+  compSrc.includes("status === 'loading'") ? pass('panel has a loading state') : fail('panel has a loading state');
+  compSrc.includes("status === 'error'") ? pass('panel has an error state') : fail('panel has an error state');
+  compSrc.includes('entries.length === 0') ? pass('panel has an empty state') : fail('panel has an empty state');
+  compSrc.includes('Try again') ? pass('panel offers a retry, not a perpetual spinner') : fail('panel offers a retry');
+  // The StrictMode-safe effect: keyed on [open, verseRef, attempt], and the
+  // status it sets is NOT in the dependency array and does NOT gate the load.
+  /\[open,\s*verseRef,\s*attempt\]/.test(compSrc)
+    ? pass('load effect keyed on stable inputs [open, verseRef, attempt]')
+    : fail('load effect keyed on stable inputs [open, verseRef, attempt]');
+  /status\s*!==\s*'idle'/.test(compSrc)
+    ? fail('load effect must NOT gate on its own status')
+    : pass('load effect does not gate on its own status');
+
+  const readerSrc = readFileSync(resolve(root, 'src/components/ParshaReader.jsx'), 'utf8');
+  readerSrc.includes('VerseCommentary')
+    ? pass('ParshaReader wires the commentary panel') : fail('ParshaReader wires the commentary panel');
+} catch (err) { fail('per-verse commentary pieces', err.message); }
+
 console.log(`\n${passes + failures} checks: ${passes} passed, ${failures} failed`);
 if (failures > 0) process.exit(1);

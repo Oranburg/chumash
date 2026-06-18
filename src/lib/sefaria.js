@@ -326,27 +326,84 @@ export async function getDafLinks(dafRef) {
   };
 }
 
-// Load the commentaries on a single verse, grouped by commentator. A cited
-// Torah verse carries Onkelos in the Targum category and the rest under
-// Commentary; both are surfaced here so the reader follows the verse down into
-// its own commentary, Onkelos and Rashi among them, the way the page intends.
-// On a verse outside the Torah (for example a verse from Ecclesiastes) the
-// Targum group is simply empty and the commentary stands on its own.
-// Returns [{ name, heName, refs:[...] }].
+// The six classical parshanim this app surfaces on a Torah verse, in the fixed
+// order a reader meets them: the Aramaic Targum of Onkelos first, then Rashi,
+// his grandson Rashbam, Ibn Ezra, Ramban (Nachmanides), and Sforno. Each entry
+// carries the display label, the Hebrew title Sefaria uses, and a matcher that
+// recognizes the work by its Sefaria title. Onkelos sits in the Targum category
+// and titles its work "Onkelos <Book>" rather than "X on <Book>", so it gets its
+// own matcher; the other five sit in the Commentary category under a
+// collectiveTitle.en that is exactly the commentator's name.
+const TARGET_COMMENTATORS = [
+  { commentator: 'Onkelos', heTitle: 'אונקלוס', match: (c) => /onkelos/i.test(c) },
+  { commentator: 'Rashi', heTitle: 'רש"י', match: (c) => c === 'Rashi' },
+  { commentator: 'Rashbam', heTitle: 'רשב"ם', match: (c) => c === 'Rashbam' },
+  { commentator: 'Ibn Ezra', heTitle: 'אבן עזרא', match: (c) => c === 'Ibn Ezra' },
+  { commentator: 'Ramban', heTitle: 'רמב"ן', match: (c) => c === 'Ramban' },
+  { commentator: 'Sforno', heTitle: 'ספורנו', match: (c) => c === 'Sforno' },
+];
+
+// Pull the Hebrew and English text out of one link object returned with
+// with_text=1. Sefaria gives `he` and `text` as either a single string or a
+// (possibly nested) array of strings; flatten both shapes, strip the HTML, and
+// drop empties so a segment with text in only one language still reads.
+function commentSegments(link) {
+  const he = flattenSegments(link.he).map(stripHtml).filter(Boolean);
+  const en = flattenSegments(link.text != null ? link.text : link.en)
+    .map(stripHtml)
+    .filter(Boolean);
+  return { he, en };
+}
+
+// Load the classical commentary on a single Torah verse, limited to the six
+// parshanim in TARGET_COMMENTATORS and returned in that fixed order. The links
+// API with with_text=1 returns every linked work with its text inline, so one
+// request gets the verse's whole apparatus; this keeps only the six targets and
+// ignores the rest (Midrash, Chasidut, later supercommentary, and so on).
+//
+// One commentator can carry several comment segments on a single verse: Sefaria
+// splits Rashi, Ibn Ezra, and the others into numbered pieces (".../16:1:1",
+// ".../16:1:2"). Those arrive as separate link objects sharing a collectiveTitle.
+// They are collected in the order their refs sort, so the segments read in the
+// order the commentator wrote them rather than the order the links API happened
+// to return. A commentator with no comment on this verse simply does not appear.
+//
+// Every word here is Sefaria's, stripped of HTML but otherwise verbatim. On a
+// request failure this throws, like the other loaders, so the caller can report
+// the failure and offer a retry rather than invent commentary.
+// Returns [{ commentator, heTitle, he:[...], en:[...] }].
 export async function getVerseCommentaries(verseRef) {
-  const raw = await getLinks(verseRef);
-  const seen = new Set();
-  const links = [];
-  raw.forEach((item) => {
-    if (!item || (item.category !== 'Commentary' && item.category !== 'Targum')) {
-      return;
-    }
-    const link = normalizeLink(item);
-    if (!link || seen.has(link.ref)) return;
-    seen.add(link.ref);
-    links.push(link);
-  });
-  return groupByName(links);
+  if (!verseRef) {
+    throw new Error('No verse reference was given to load commentary for.');
+  }
+  const url = `${API}/links/${encodeURIComponent(verseRef)}?with_text=1`;
+  const data = await getJson(url);
+  const raw = Array.isArray(data) ? data : [];
+
+  return TARGET_COMMENTATORS.map((target) => {
+    // Every link object for this commentator on this verse, sorted by ref so the
+    // numbered segments (":1", ":2", ...) read in their written order.
+    const links = raw
+      .filter((link) => {
+        if (!link || (link.category !== 'Commentary' && link.category !== 'Targum')) {
+          return false;
+        }
+        const collective = (link.collectiveTitle && link.collectiveTitle.en) || '';
+        const title = link.index_title || '';
+        return target.match(collective) || target.match(title);
+      })
+      .sort((a, b) => String(a.ref).localeCompare(String(b.ref), undefined, { numeric: true }));
+
+    const he = [];
+    const en = [];
+    links.forEach((link) => {
+      const seg = commentSegments(link);
+      he.push(...seg.he);
+      en.push(...seg.en);
+    });
+
+    return { commentator: target.commentator, heTitle: target.heTitle, he, en };
+  }).filter((entry) => entry.he.length > 0 || entry.en.length > 0);
 }
 
 // Turn a manuscript slug into a human label.
