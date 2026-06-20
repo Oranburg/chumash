@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { BookOpen, Library, Minus, Plus, ScrollText } from 'lucide-react';
-import Breadcrumb from '../components/Breadcrumb.jsx';
 import ParshaSummary from '../components/ParshaSummary.jsx';
 import ScrollColumn from '../components/ScrollColumn.jsx';
 import StudyTable from '../components/StudyTable.jsx';
@@ -250,7 +249,6 @@ export default function ThisWeek() {
 
   return (
     <>
-      <Breadcrumb trail={[{ label: 'This week' }]} />
       <main className="app-main">
         <LocaleToggle locale={locale} onChange={changeLocale} />
 

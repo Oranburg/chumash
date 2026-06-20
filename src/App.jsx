@@ -8,7 +8,6 @@ import Reading from './pages/Reading.jsx';
 import Browse from './pages/Browse.jsx';
 import Settings from './pages/Settings.jsx';
 import NotFound from './pages/NotFound.jsx';
-import SiteFooter from './components/SiteFooter.jsx';
 import { initServiceWorker } from './sw-register.js';
 
 const THEME_KEY = 'chumash-theme';
@@ -107,7 +106,6 @@ export default function App() {
             <Route path="*" element={<NotFound />} />
           </Routes>
         </div>
-        <SiteFooter />
         <BottomNav />
       </div>
     </HashRouter>

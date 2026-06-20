@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom';
-import Breadcrumb from '../components/Breadcrumb.jsx';
 import { getParshaIndex } from '../lib/parsha.js';
 
 // Browse the Torah by book, then portion. The five books each open a list of
@@ -11,7 +10,6 @@ export default function Browse() {
 
   return (
     <>
-      <Breadcrumb trail={[{ label: 'Browse' }]} />
       <main className="app-main">
         <h1>The five books</h1>
         <p style={{ color: 'var(--muted)', marginTop: 0 }}>
