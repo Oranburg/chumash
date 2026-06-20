@@ -1,10 +1,7 @@
 import { Link } from 'react-router-dom';
-import Breadcrumb from '../components/Breadcrumb.jsx';
-
 export default function NotFound() {
   return (
     <>
-      <Breadcrumb trail={[{ label: 'Not found' }]} />
       <main className="app-main">
         <h1>That page is not here</h1>
         <p>

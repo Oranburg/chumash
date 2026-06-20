@@ -1005,15 +1005,6 @@ details.embed[open] summary {
 
 /* ---------- Footer ---------- */
 
-.site-footer {
-  background: var(--blue-deep);
-  color: rgba(255, 255, 255, 0.75);
-  text-align: center;
-  padding: var(--space-xl) var(--space-md);
-  font-size: 0.85rem;
-  margin-top: var(--space-2xl);
-}
-
 .footer-inner {
   max-width: var(--max-width);
   margin: 0 auto;

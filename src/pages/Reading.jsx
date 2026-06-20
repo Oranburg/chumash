@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import Breadcrumb from '../components/Breadcrumb.jsx';
 import ParshaReader from '../components/ParshaReader.jsx';
 import ParshaSummary from '../components/ParshaSummary.jsx';
 import { getParshaReading, PARSHIYOT } from '../lib/parsha.js';
@@ -51,7 +50,6 @@ export default function Reading() {
 
   return (
     <>
-      <Breadcrumb trail={[{ label: titleName }]} />
       <main className="app-main">
         <header style={{ marginBottom: 'var(--space-lg)' }}>
           <h1 className="hebrew" style={{ fontSize: '2.4rem', color: 'var(--accent-2)', margin: '0 0 var(--space-xs)' }}>

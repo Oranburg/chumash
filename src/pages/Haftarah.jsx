@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from 'react';
-import Breadcrumb from '../components/Breadcrumb.jsx';
 import ParshaReader from '../components/ParshaReader.jsx';
 import LeyningPlayer from '../components/LeyningPlayer.jsx';
 import { getThisWeeksParsha } from '../lib/parsha.js';
@@ -49,7 +48,6 @@ export default function Haftarah() {
 
   return (
     <>
-      <Breadcrumb trail={[{ label: 'This week', to: '/' }, { label: 'Haftarah' }]} />
       <main className="app-main">
         <header style={{ marginBottom: 'var(--space-lg)' }}>
           <h1 className="hebrew" style={{ fontSize: '2.4rem', color: 'var(--accent-2)', margin: '0 0 var(--space-xs)' }}>
