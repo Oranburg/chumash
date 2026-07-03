@@ -4,6 +4,18 @@ import VitePWA from '@vite-pwa/astro';
 
 // Deployed on GitHub Pages under the /chumash/ subpath.
 //
+// This config now supports two build modes because the app ships to two
+// hosts with two different path shapes. The default `npm run build` (no
+// env var set) is the one the existing GitHub Actions workflow runs, and it
+// must keep producing the /chumash/ prefixed shape that GitHub Pages needs
+// at oranburg.law/chumash/ and that the smoke suite asserts on; that path is
+// untouched by this change. A new `npm run build:subdomain` script sets the
+// CF_SUBDOMAIN_BUILD env var and is used only for the separate Cloudflare
+// Workers Build project named "chumash", which serves the app at the root
+// of chumash.oranburg.law and therefore needs root-relative asset paths
+// with no /chumash/ prefix. The two modes emit to different output
+// directories (see outDir below) so neither build can clobber the other.
+//
 // This is a true multi-page Astro site: every route (this week's aliyah,
 // browse, haftarah, settings, each named portion, and 404) is its own real
 // .astro page under src/pages/, server-rendered at build time with
@@ -20,9 +32,9 @@ import VitePWA from '@vite-pwa/astro';
 // Astro emits the static site to dist/, which the GitHub Pages workflow
 // uploads unchanged.
 export default defineConfig({
-  base: '/chumash/',
+  base: process.env.CF_SUBDOMAIN_BUILD ? '/' : '/chumash/',
   output: 'static',
-  outDir: './dist',
+  outDir: process.env.CF_SUBDOMAIN_BUILD ? './dist-subdomain' : './dist',
   integrations: [
     react(),
     VitePWA({
@@ -35,8 +47,8 @@ export default defineConfig({
         theme_color: '#0A3255',
         background_color: '#000000',
         display: 'standalone',
-        start_url: '/chumash/',
-        scope: '/chumash/',
+        start_url: process.env.CF_SUBDOMAIN_BUILD ? '/' : '/chumash/',
+        scope: process.env.CF_SUBDOMAIN_BUILD ? '/' : '/chumash/',
         icons: [
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
@@ -68,16 +80,20 @@ export default defineConfig({
         ],
         runtimeCaching: [
           // App scripts: available offline after first visit, refreshed in the background.
+          // The base prefix here has to match whichever host this build is
+          // for (GitHub Pages under /chumash/, or the chumash.oranburg.law
+          // subdomain at the root), so it reads from the same env var the
+          // base and outDir above already key off, instead of a fixed string.
           {
             urlPattern: ({ request, url }) =>
-              request.destination === 'script' && url.pathname.startsWith('/chumash/'),
+              request.destination === 'script' && url.pathname.startsWith(process.env.CF_SUBDOMAIN_BUILD ? '/' : '/chumash/'),
             handler: 'StaleWhileRevalidate',
             options: { cacheName: 'app-scripts', expiration: { maxEntries: 80 } }
           },
           // Local image assets.
           {
             urlPattern: ({ request, url }) =>
-              request.destination === 'image' && url.pathname.startsWith('/chumash/'),
+              request.destination === 'image' && url.pathname.startsWith(process.env.CF_SUBDOMAIN_BUILD ? '/' : '/chumash/'),
             handler: 'CacheFirst',
             options: { cacheName: 'app-images', expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 30 } }
           },

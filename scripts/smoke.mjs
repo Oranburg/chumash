@@ -666,8 +666,12 @@ try {
   anyClientOnly ? fail('no page uses client:only') : pass('no page uses client:only');
 
   const cfg = readFileSync(resolve(root, 'astro.config.mjs'), 'utf8');
-  /base:\s*'\/chumash\/'/.test(cfg)
-    ? pass("astro.config.mjs sets base '/chumash/'") : fail("astro.config.mjs sets base '/chumash/'");
+  // base is now conditional on CF_SUBDOMAIN_BUILD (root-relative for the
+  // chumash.oranburg.law Cloudflare Workers Build project, /chumash/
+  // otherwise), so this checks that the GitHub Pages fallback branch still
+  // resolves to '/chumash/' rather than requiring the old unconditional form.
+  /base:\s*process\.env\.CF_SUBDOMAIN_BUILD\s*\?\s*'\/'\s*:\s*'\/chumash\/'/.test(cfg)
+    ? pass("astro.config.mjs sets base '/chumash/' for the default (GitHub Pages) build") : fail("astro.config.mjs sets base '/chumash/' for the default (GitHub Pages) build");
   /output:\s*'static'/.test(cfg)
     ? pass('astro.config.mjs builds a static site') : fail('astro.config.mjs builds a static site');
 

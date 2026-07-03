@@ -1,16 +1,21 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "chumash-preview",
+  "name": "chumash",
   "compatibility_date": "2026-07-02",
   "observability": {
     "enabled": true
   },
   "assets": {
-    "directory": "./dist-cf",
+    // This directory must match the Cloudflare Workers Build project's
+    // build command, which needs to be set to `npm run build:subdomain`
+    // (see astro.config.mjs). That script builds with CF_SUBDOMAIN_BUILD=1,
+    // which points Astro's outDir at ./dist-subdomain and emits root-relative
+    // asset paths for chumash.oranburg.law, rather than the /chumash/-prefixed
+    // shape in ./dist (GitHub Pages) or ./dist-cf (the older chumash-preview
+    // workers.dev pipeline driven by npm run build:cf / deploy:cf).
+    "directory": "./dist-subdomain",
     // Serve the nearest 404.html for any unmatched path instead of Cloudflare's
-    // bare empty-body 404. The multi-page rewrite ships a real 404.html at
-    // dist/404.html (postbuild-cf.mjs copies it to dist-cf/chumash/404.html),
-    // so a bad URL under /chumash/ now gets the app's own not-found page.
+    // bare empty-body 404.
     "not_found_handling": "404-page"
   }
 }
