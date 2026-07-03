@@ -22,9 +22,19 @@ async function getJson(url) {
 }
 
 // Strip HTML tags and decode the few entities Sefaria's English uses.
+//
+// Sefaria's English text embeds footnotes inline as
+// `<sup class="footnote-marker">a</sup><i class="footnote">...duplicated
+// clause plus the note...</i>`. A plain tag-strip leaves that footnote body
+// in the running text, producing a run-on like "When God began to createWhen
+// God began to create In contrast to others...". Drop the footnote marker
+// and footnote body outright before stripping the remaining tags, so only
+// the clean translation survives.
 function stripHtml(value) {
   if (typeof value !== 'string') return '';
   return value
+    .replace(/<sup[^>]*class="footnote-marker"[^>]*>[\s\S]*?<\/sup>/g, '')
+    .replace(/<i[^>]*class="footnote"[^>]*>[\s\S]*?<\/i>/g, '')
     .replace(/<[^>]*>/g, '')
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
