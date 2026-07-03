@@ -1,0 +1,97 @@
+---
+// Shared page shell for the multi-page Astro rewrite of Chumash.
+//
+// Every route used to be one client:only React island (App.jsx) that ran its
+// own HashRouter and rendered every screen from a blank <div id="root">. Now
+// each route is its own real Astro page (src/pages/index.astro,
+// src/pages/browse.astro, src/pages/haftarah.astro, src/pages/settings.astro,
+// src/pages/parsha/[name].astro, src/pages/404.astro), and this layout is the
+// one piece of markup, script, and stylesheet loading they all share: the
+// <head>, the pre-paint theme script, the fonts, the breadcrumb, the header
+// (brand link plus the ThemeToggle island), the bottom nav, and the footer.
+//
+// The interactive, data-fetching screen for each route mounts as a
+// client:load island inside the page's own <main>, passed in through the
+// default slot. That screen still does its own thing (Sefaria fetches, the
+// AI study partner, localStorage-backed preferences); this layout only
+// supplies the document and the navigation chrome around it, all of which is
+// now real server-rendered HTML rather than blank shell markup waiting on
+// client JS.
+import Breadcrumb from '../components/Breadcrumb.astro';
+import Footer from '../components/Footer.astro';
+import BottomNav from '../components/BottomNav.astro';
+import ThemeToggle from '../components/ThemeToggle.jsx';
+import '../styles/og-tokens.css';
+import '../styles/tokens.css';
+import '../index.css';
+
+interface Props {
+  title: string;
+  current: 'home' | 'browse' | 'settings' | 'other';
+  breadcrumbCurrent: string;
+}
+const { title, current, breadcrumbCurrent } = Astro.props;
+
+const base = import.meta.env.BASE_URL;
+const favicon = `${base}favicon.svg`;
+const appleTouchIcon = `${base}icons/apple-touch-icon.png`;
+---
+
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0A3255" />
+    <title>{title}</title>
+
+    <!-- Set the saved theme before first paint to avoid a flash. Runs on
+         every page (they all share this layout), so navigating between the
+         new static routes never shows a theme flicker. -->
+    <script is:inline>(function(){var t=localStorage.getItem('chumash-theme')||'dark';document.documentElement.setAttribute('data-theme',t)})()</script>
+
+    <link rel="icon" type="image/svg+xml" href={favicon} />
+    <link rel="apple-touch-icon" href={appleTouchIcon} />
+
+    <!-- Fonts: headline, body, scholarly serif, mono, and Hebrew (Frank Ruhl Libre + Noto Serif Hebrew). -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Roboto:wght@400;500&family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Roboto+Mono:wght@400&family=Frank+Ruhl+Libre:wght@400;500;700&family=Noto+Serif+Hebrew:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <Breadcrumb
+      trail={[{ label: "Home", href: "https://oranburg.law" }]}
+      current={breadcrumbCurrent}
+    />
+    <div class="app-shell">
+      <header class="app-header">
+        <a href={base} class="app-header__brand">Chumash</a>
+        <ThemeToggle client:load />
+      </header>
+      <div style="flex: 1 1 auto;">
+        <slot />
+      </div>
+      <BottomNav current={current} />
+    </div>
+    <Footer
+      links={[{ label: "Home", href: "https://oranburg.law" },
+              { label: "Sefaria", href: "https://www.sefaria.org" }]}
+      copyright="© 2026 Seth C. Oranburg. Torah text fetched from Sefaria at read time."
+    />
+
+    <!-- The offline/PWA self-heal (service-worker registration, controller-
+         change reload, and the stale-precache chunk-load recovery) used to
+         run from a mount effect inside the App.jsx island, once, no matter
+         which route was open, because there was only ever one island. Now
+         that every route is its own page, the same script runs from this
+         shared layout so it still runs exactly once per page load, on every
+         route, unchanged in behavior. -->
+    <script>
+      import { initServiceWorker } from '../sw-register.js';
+      initServiceWorker();
+    </script>
+  </body>
+</html>

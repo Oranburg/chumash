@@ -80,7 +80,7 @@ const labelStyle = {
   color: 'var(--blue-light)',
 };
 
-export default function Settings() {
+export default function SettingsScreen() {
   const [providerId, setProviderId] = useState(DEFAULT_PROVIDER_ID);
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('');

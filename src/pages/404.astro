@@ -1,0 +1,15 @@
+---
+// The not-found page. Astro's static build emits this file's output to
+// dist/404.html, which GitHub Pages serves automatically for any unmatched
+// path under the site (the same convention havruta and BA already use).
+// This replaces the old client-side "*" HashRouter route; there is no
+// client-side router left to catch an unknown path, so this is now the real
+// page a reader (or a crawler) gets for a bad URL, fully server-rendered,
+// with no client JS required.
+import Layout from '../layouts/Layout.astro';
+import NotFoundScreen from '../screens/NotFoundScreen.jsx';
+---
+
+<Layout title="Chumash: page not found" current="other" breadcrumbCurrent="Not found">
+  <NotFoundScreen />
+</Layout>

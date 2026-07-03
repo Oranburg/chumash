@@ -1,0 +1,14 @@
+---
+// Browse the five books. BrowseScreen has no browser-only state at all (the
+// portion index is pure data from parsha.js), so it needs no client
+// directive: Astro renders it once, server-side, and ships plain HTML with
+// no React runtime for this route at all. That makes /browse/ the clearest
+// example in this rewrite of "real, route-specific server-rendered content,"
+// with zero hydration involved.
+import Layout from '../layouts/Layout.astro';
+import BrowseScreen from '../screens/BrowseScreen.jsx';
+---
+
+<Layout title="Chumash: browse the five books" current="browse" breadcrumbCurrent="Browse">
+  <BrowseScreen />
+</Layout>

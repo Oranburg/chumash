@@ -1,0 +1,12 @@
+---
+// The haftarah for this week's portion. HaftarahScreen fetches the current
+// week from Sefaria at mount, so it still needs a client:load island; this
+// page supplies the real, route-specific chrome (title, breadcrumb, nav)
+// around it server-side.
+import Layout from '../layouts/Layout.astro';
+import HaftarahScreen from '../screens/HaftarahScreen.jsx';
+---
+
+<Layout title="Chumash: this week's haftarah" current="other" breadcrumbCurrent="Haftarah">
+  <HaftarahScreen client:load />
+</Layout>

@@ -16,7 +16,7 @@ import { transliterate } from '../lib/transliterate.js';
 // A haftarah ref can be a single contiguous range ("I Samuel 11:14-12:22") or,
 // in some weeks, a ref that spans more than one stretch. The reading view loads
 // whatever Sefaria returns for the ref and never fills in a missing piece.
-export default function Haftarah() {
+export default function HaftarahScreen() {
   const [parsha, setParsha] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

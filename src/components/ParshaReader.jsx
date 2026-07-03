@@ -10,6 +10,7 @@ import WordPopover from './WordPopover.jsx';
 import TranslationCompare from './TranslationCompare.jsx';
 import VerseCommentary from './VerseCommentary.jsx';
 import VerseHavruta from './VerseHavruta.jsx';
+import { useClientState } from '../lib/useClientState.js';
 
 // The verse-by-verse reading view for a portion. It takes the portion's verse
 // range (a Sefaria ref like "Numbers 16:1-18:32"), fetches the text from Sefaria,
@@ -78,20 +79,32 @@ export default function ParshaReader({ rangeRef, title }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const [view, setView] = useState(readSavedView);
-  const [heSize, setHeSize] = useState(() =>
-    readSavedSize(HE_SIZE_STORAGE, DEFAULT_HE_SIZE, HE_MIN, HE_MAX)
+  // Two-pass hydration: this component now renders once on the server (at
+  // static build time, in Node) and once on the client during the client:load
+  // island's hydration. Node has no localStorage, so the saved view, sizes,
+  // and toggles must render as the same fixed default on both passes, then
+  // correct themselves from the real localStorage value in a mount effect
+  // (see useClientState.js). Reading localStorage directly in the useState
+  // initializer, as before, would compute a different value on each pass and
+  // trip a hydration mismatch.
+  const [view, setView, viewRestored] = useClientState(readSavedView, DEFAULT_VIEW);
+  const [heSize, setHeSize, heSizeRestored] = useClientState(
+    () => readSavedSize(HE_SIZE_STORAGE, DEFAULT_HE_SIZE, HE_MIN, HE_MAX),
+    DEFAULT_HE_SIZE
   );
-  const [enSize, setEnSize] = useState(() =>
-    readSavedSize(EN_SIZE_STORAGE, DEFAULT_EN_SIZE, EN_MIN, EN_MAX)
+  const [enSize, setEnSize, enSizeRestored] = useClientState(
+    () => readSavedSize(EN_SIZE_STORAGE, DEFAULT_EN_SIZE, EN_MIN, EN_MAX),
+    DEFAULT_EN_SIZE
   );
-  const [showTranslit, setShowTranslit] = useState(() =>
-    readSavedBool(TRANSLIT_STORAGE, false)
+  const [showTranslit, setShowTranslit, translitRestored] = useClientState(
+    () => readSavedBool(TRANSLIT_STORAGE, false),
+    false
   );
   // Cantillation (te'amim) is off by default, as the design asks. The toggle lets
   // a reader who wants the marks bring them back.
-  const [showTaamim, setShowTaamim] = useState(() =>
-    readSavedBool(TAAMIM_STORAGE, false)
+  const [showTaamim, setShowTaamim, taamimRestored] = useClientState(
+    () => readSavedBool(TAAMIM_STORAGE, false),
+    false
   );
 
   const [activeWord, setActiveWord] = useState(null);
@@ -125,21 +138,29 @@ export default function ParshaReader({ rangeRef, title }) {
     load();
   }, [load]);
 
+  // Each write waits for its own restore to land first (the `restored` flag
+  // from useClientState), so the pre-restore default is never written back
+  // over a genuinely saved preference.
   useEffect(() => {
+    if (!viewRestored) return;
     try { localStorage.setItem(VIEW_STORAGE, view); } catch { /* no persistence */ }
-  }, [view]);
+  }, [view, viewRestored]);
   useEffect(() => {
+    if (!heSizeRestored) return;
     try { localStorage.setItem(HE_SIZE_STORAGE, String(heSize)); } catch { /* no persistence */ }
-  }, [heSize]);
+  }, [heSize, heSizeRestored]);
   useEffect(() => {
+    if (!enSizeRestored) return;
     try { localStorage.setItem(EN_SIZE_STORAGE, String(enSize)); } catch { /* no persistence */ }
-  }, [enSize]);
+  }, [enSize, enSizeRestored]);
   useEffect(() => {
+    if (!translitRestored) return;
     try { localStorage.setItem(TRANSLIT_STORAGE, showTranslit ? 'on' : 'off'); } catch { /* no persistence */ }
-  }, [showTranslit]);
+  }, [showTranslit, translitRestored]);
   useEffect(() => {
+    if (!taamimRestored) return;
     try { localStorage.setItem(TAAMIM_STORAGE, showTaamim ? 'on' : 'off'); } catch { /* no persistence */ }
-  }, [showTaamim]);
+  }, [showTaamim, taamimRestored]);
 
   if (loading) {
     return (

@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { MessagesSquare, ChevronDown, ChevronUp, Square } from 'lucide-react';
 import { usePartnerConversation } from '../lib/usePartnerConversation.js';
 import { buildFirstUserMessage } from '../lib/partner.js';
+import { href } from '../lib/routes.js';
 
 // The per-verse study partner. It is a distinct action under one verse, labeled
 // "Study this verse with your havruta," and it enforces the human-acts-first
@@ -82,9 +82,9 @@ export default function VerseHavruta({ verse, enSize }) {
               </p>
               <p style={{ ...mutedLine, marginTop: 'var(--space-sm)' }}>
                 Add a key in{' '}
-                <Link to="/settings" style={{ color: 'var(--accent)' }}>
+                <a href={href('settings/')} style={{ color: 'var(--accent)' }}>
                   Settings
-                </Link>
+                </a>
                 , then come back and write what you noticed in this verse.
               </p>
             </div>

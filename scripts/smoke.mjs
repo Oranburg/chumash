@@ -5,7 +5,8 @@
 //   1. transliterate() reproduces the worked examples from the scheme.
 //   2. sefariaUrl() builds the expected canonical Sefaria URL.
 //   3. parsha.js holds the right Torah structure (5 books, 54 portions, 7 pairs).
-//   4. src/App.jsx is a valid shell with a home route.
+//   4. Every route is its own real multi-page .astro file (no client-only
+//      App.jsx shell left), each mounting its screen with client:load.
 //
 // Exit code 0 = all pass. Non-zero = one or more failures.
 // Run: node scripts/smoke.mjs
@@ -74,15 +75,32 @@ try {
   typeof mod.getThisWeeksParsha === 'function' ? pass('getThisWeeksParsha is defined') : fail('getThisWeeksParsha defined');
 } catch (err) { fail('parsha.js imports', err.message); }
 
-// 4. App shell and the real routes.
-console.log('\n--- 4. App.jsx shell ---');
+// 4. The real multi-page Astro routes. The app no longer runs a client-side
+// HashRouter inside one App.jsx island; each route is its own .astro page
+// under src/pages, so this checks that every expected page file exists.
+console.log('\n--- 4. Multi-page Astro routes ---');
 try {
-  const src = readFileSync(resolve(root, 'src/App.jsx'), 'utf8');
-  src.includes('path="/"') ? pass('home route registered') : fail('home route registered');
-  src.includes('HashRouter') ? pass('uses HashRouter') : fail('uses HashRouter');
-  src.includes('path="/browse"') ? pass('browse route registered') : fail('browse route registered');
-  src.includes('path="/parsha/:name"') ? pass('reading route registered') : fail('reading route registered');
-} catch (err) { fail('src/App.jsx readable', err.message); }
+  const pages = {
+    'home (this week)': 'src/pages/index.astro',
+    browse: 'src/pages/browse.astro',
+    haftarah: 'src/pages/haftarah.astro',
+    settings: 'src/pages/settings.astro',
+    'reading (per-portion)': 'src/pages/parsha/[name].astro',
+    '404': 'src/pages/404.astro',
+  };
+  for (const [label, relPath] of Object.entries(pages)) {
+    existsSync(resolve(root, relPath))
+      ? pass(`${label} route file exists (${relPath})`)
+      : fail(`${label} route file exists (${relPath})`);
+  }
+  const dynamicSrc = readFileSync(resolve(root, 'src/pages/parsha/[name].astro'), 'utf8');
+  dynamicSrc.includes('getStaticPaths')
+    ? pass('reading route enumerates its static paths')
+    : fail('reading route enumerates its static paths');
+  existsSync(resolve(root, 'src/App.jsx'))
+    ? fail('src/App.jsx removed (superseded by per-route .astro pages)')
+    : pass('src/App.jsx removed (superseded by per-route .astro pages)');
+} catch (err) { fail('multi-page route files readable', err.message); }
 
 // 5. The parsha calendar and fetch layer (the build of this increment). The
 // network calls are not exercised here (the smoke test stays offline); these
@@ -151,7 +169,7 @@ try {
 // flowing column, the word popover, and the day's aliyah text.
 console.log('\n--- 8. ThisWeek home wiring ---');
 try {
-  const src = readFileSync(resolve(root, 'src/pages/ThisWeek.jsx'), 'utf8');
+  const src = readFileSync(resolve(root, 'src/screens/ThisWeekScreen.jsx'), 'utf8');
   src.includes("from '../lib/blessings.js'") ? pass('home imports the blessings') : fail('home imports the blessings');
   src.includes('BLESSING_BEFORE') && src.includes('BLESSING_AFTER')
     ? pass('home renders both blessings') : fail('home renders both blessings');
@@ -166,7 +184,7 @@ try {
     ? pass('home carries the scroll and study views') : fail('home carries the scroll and study views');
   src.includes('ashkenazi') && src.includes('sefardi')
     ? pass('home carries the scribal-tradition switch') : fail('home carries the scribal-tradition switch');
-} catch (err) { fail('src/pages/ThisWeek.jsx readable', err.message); }
+} catch (err) { fail('src/screens/ThisWeekScreen.jsx readable', err.message); }
 
 // 9. The scroll hero: bare consonants for display, vocalized for lookup. The
 // scroll strips both nikud and te'amim, and the ScrollColumn carries the
@@ -312,11 +330,16 @@ try {
 // 14. The Settings route and page exist and use chumash- keys.
 console.log('\n--- 14. Settings route + page ---');
 try {
-  const appSrc = readFileSync(resolve(root, 'src/App.jsx'), 'utf8');
-  appSrc.includes('path="/settings"') ? pass('settings route registered') : fail('settings route registered');
-  appSrc.includes("import Settings from './pages/Settings.jsx'") ? pass('App imports the Settings page') : fail('App imports the Settings page');
-  appSrc.includes("to: '/settings'") ? pass('settings nav entry present') : fail('settings nav entry present');
-  const setSrc = readFileSync(resolve(root, 'src/pages/Settings.jsx'), 'utf8');
+  existsSync(resolve(root, 'src/pages/settings.astro'))
+    ? pass('settings route file exists') : fail('settings route file exists');
+  const settingsPageSrc = readFileSync(resolve(root, 'src/pages/settings.astro'), 'utf8');
+  settingsPageSrc.includes("import SettingsScreen from '../screens/SettingsScreen.jsx'")
+    ? pass('settings.astro imports SettingsScreen') : fail('settings.astro imports SettingsScreen');
+  settingsPageSrc.includes('client:load')
+    ? pass('settings.astro mounts SettingsScreen with client:load, not client:only') : fail('settings.astro mounts SettingsScreen with client:load, not client:only');
+  const navSrc = readFileSync(resolve(root, 'src/components/BottomNav.astro'), 'utf8');
+  navSrc.includes("settings/") ? pass('settings nav entry present') : fail('settings nav entry present');
+  const setSrc = readFileSync(resolve(root, 'src/screens/SettingsScreen.jsx'), 'utf8');
   setSrc.includes('keyStorageFor') ? pass('Settings stores the key under a chumash- key') : fail('Settings stores the key under a chumash- key');
   /havruta-/.test(setSrc) ? fail('Settings must not carry havruta- keys') : pass('Settings carries no havruta- keys');
   // The key is never hardcoded: no inline sk-ant-/sk- literal assignment.
@@ -356,7 +379,7 @@ try {
     ? fail('hook must not call the model from an effect') : pass('hook does not call the model from an effect');
 
   // The missing-key path points at Settings, not an error.
-  panelSrc.includes('noKey') && /to="\/settings"/.test(panelSrc)
+  panelSrc.includes('noKey') && /href\(['"]settings\/['"]\)/.test(panelSrc)
     ? pass('missing-key path links to /settings') : fail('missing-key path links to /settings');
 
   // The home page surfaces the partner on the day's aliyah through one entry
@@ -366,7 +389,7 @@ try {
     ? pass('home partner reuses the per-verse panel') : fail('home partner reuses the per-verse panel');
   /Study .* with your havruta/.test(homePartnerSrc)
     ? pass('home partner has the labeled aliyah action') : fail('home partner has the labeled aliyah action');
-  const homeSrc15 = readFileSync(resolve(root, 'src/pages/ThisWeek.jsx'), 'utf8');
+  const homeSrc15 = readFileSync(resolve(root, 'src/screens/ThisWeekScreen.jsx'), 'utf8');
   homeSrc15.includes('AliyahHavruta')
     ? pass('home page wires the aliyah partner entry') : fail('home page wires the aliyah partner entry');
 } catch (err) { fail('per-verse action + gate', err.message); }
@@ -417,7 +440,7 @@ try {
   compSrc.includes('onToggle') ? pass('tracker calls back to toggle a mark') : fail('tracker calls back to toggle a mark');
   /Shnayim mikra/i.test(compSrc) ? pass('tracker names the practice') : fail('tracker names the practice');
 
-  const homeSrc = readFileSync(resolve(root, 'src/pages/ThisWeek.jsx'), 'utf8');
+  const homeSrc = readFileSync(resolve(root, 'src/screens/ThisWeekScreen.jsx'), 'utf8');
   homeSrc.includes('ShnayimMikraTracker') ? pass('home renders the tracker') : fail('home renders the tracker');
   homeSrc.includes("from '../lib/shnayimMikra.js'") ? pass('home imports the tracker library') : fail('home imports the tracker library');
   // The record is keyed on the portion's ref and reset when the portion changes.
@@ -431,7 +454,7 @@ try {
 // no longer pinned to today's weekday alone.
 console.log('\n--- 18. aliyah-a-day week view ---');
 try {
-  const homeSrc = readFileSync(resolve(root, 'src/pages/ThisWeek.jsx'), 'utf8');
+  const homeSrc = readFileSync(resolve(root, 'src/screens/ThisWeekScreen.jsx'), 'utf8');
   homeSrc.includes('AliyahWeek') ? pass('home renders the week of aliyot') : fail('home renders the week of aliyot');
   homeSrc.includes('aliyahIndexForDate') ? pass('home still maps the weekday to the day aliyah') : fail('home still maps the weekday to the day aliyah');
   // A selectable index lets the learner jump to any aliyah, and it falls back to
@@ -448,11 +471,13 @@ try {
 // failure with a retry rather than inventing a reading.
 console.log('\n--- 19. haftarah route + page ---');
 try {
-  const appSrc = readFileSync(resolve(root, 'src/App.jsx'), 'utf8');
-  appSrc.includes('path="/haftarah"') ? pass('haftarah route registered') : fail('haftarah route registered');
-  appSrc.includes("import Haftarah from './pages/Haftarah.jsx'") ? pass('App imports the Haftarah page') : fail('App imports the Haftarah page');
+  existsSync(resolve(root, 'src/pages/haftarah.astro'))
+    ? pass('haftarah route file exists') : fail('haftarah route file exists');
+  const haftarahPageSrc = readFileSync(resolve(root, 'src/pages/haftarah.astro'), 'utf8');
+  haftarahPageSrc.includes("import HaftarahScreen from '../screens/HaftarahScreen.jsx'")
+    ? pass('haftarah.astro imports HaftarahScreen') : fail('haftarah.astro imports HaftarahScreen');
 
-  const hafSrc = readFileSync(resolve(root, 'src/pages/Haftarah.jsx'), 'utf8');
+  const hafSrc = readFileSync(resolve(root, 'src/screens/HaftarahScreen.jsx'), 'utf8');
   // Reuses the reading view, which loads through getParshaText.
   hafSrc.includes('ParshaReader') ? pass('haftarah reuses the ParshaReader') : fail('haftarah reuses the ParshaReader');
   hafSrc.includes('getThisWeeksParsha') ? pass('haftarah resolves the week to get its haftarah ref') : fail('haftarah resolves the week to get its haftarah ref');
@@ -464,8 +489,8 @@ try {
   readerSrc.includes('getParshaText') ? pass('the reading view loads the ref through getParshaText') : fail('the reading view loads the ref through getParshaText');
 
   // The home page offers a path to the haftarah.
-  const homeSrc = readFileSync(resolve(root, 'src/pages/ThisWeek.jsx'), 'utf8');
-  /to="\/haftarah"/.test(homeSrc) ? pass('home links to the haftarah') : fail('home links to the haftarah');
+  const homeSrc = readFileSync(resolve(root, 'src/screens/ThisWeekScreen.jsx'), 'utf8');
+  /href\(['"]haftarah\/['"]\)/.test(homeSrc) ? pass('home links to the haftarah') : fail('home links to the haftarah');
 } catch (err) { fail('haftarah route + page', err.message); }
 
 // 20. The service-worker hardening: autoUpdate plus the workbox flags that purge
@@ -485,17 +510,22 @@ try {
     ? pass('workbox clientsClaim is set') : fail('workbox clientsClaim is set');
   /skipWaiting:\s*true/.test(cfg)
     ? pass('workbox skipWaiting is set') : fail('workbox skipWaiting is set');
-  /navigateFallback:/.test(cfg)
-    ? pass('workbox has a SPA navigation fallback') : fail('workbox has a SPA navigation fallback');
+  // Multi-page precaching replaces the old single-page navigateFallback: each
+  // real route is now its own precached HTML file, so navigateFallback is
+  // deliberately left unset (see the comment in astro.config.mjs) rather than
+  // pointing every unmatched navigation at index.html.
+  /navigateFallback:\s*undefined/.test(cfg)
+    ? pass('navigateFallback is deliberately unset for multi-page precaching')
+    : fail('navigateFallback is deliberately unset for multi-page precaching');
   // The Culmus font precache is not dropped.
   /globPatterns:\s*\[[^\]]*ttf/.test(cfg)
     ? pass('the STaM font precache is kept (ttf in globPatterns)') : fail('the STaM font precache is kept');
 
-  // Under the island, App.jsx runs initServiceWorker from a mount effect; the
-  // old main.jsx is gone with the Vite entry.
-  const appSwSrc = readFileSync(resolve(root, 'src/App.jsx'), 'utf8');
-  appSwSrc.includes('sw-register') && /initServiceWorker\(\)/.test(appSwSrc)
-    ? pass('App.jsx wires the self-heal registration') : fail('App.jsx wires the self-heal registration');
+  // The self-heal registration now runs from the shared Layout.astro (every
+  // page uses it), not from a mount effect inside a single App.jsx island.
+  const layoutSrc = readFileSync(resolve(root, 'src/layouts/Layout.astro'), 'utf8');
+  layoutSrc.includes('sw-register') && /initServiceWorker\(\)/.test(layoutSrc)
+    ? pass('Layout.astro wires the self-heal registration') : fail('Layout.astro wires the self-heal registration');
 
   const reg = readFileSync(resolve(root, 'src/sw-register.js'), 'utf8');
   reg.includes("from 'virtual:pwa-register'")
@@ -588,10 +618,10 @@ try {
     ? pass('the player shows the source and license credit') : fail('the player shows the source and license credit');
 
   // The home page wires the per-aliyah player; the haftarah page wires the haftarah chant.
-  const homeSrc = readFileSync(resolve(root, 'src/pages/ThisWeek.jsx'), 'utf8');
+  const homeSrc = readFileSync(resolve(root, 'src/screens/ThisWeekScreen.jsx'), 'utf8');
   homeSrc.includes('LeyningPlayer') && /aliyahIndex=\{aliyahIndex\}/.test(homeSrc)
     ? pass('the home page plays the chosen aliyah') : fail('the home page plays the chosen aliyah');
-  const hafSrc = readFileSync(resolve(root, 'src/pages/Haftarah.jsx'), 'utf8');
+  const hafSrc = readFileSync(resolve(root, 'src/screens/HaftarahScreen.jsx'), 'utf8');
   hafSrc.includes('LeyningPlayer') && /kind="haftarah"/.test(hafSrc)
     ? pass('the haftarah page plays the haftarah chant') : fail('the haftarah page plays the haftarah chant');
 
@@ -605,20 +635,35 @@ try {
     ? pass('SOURCES.md records the CC BY-SA 3.0 license') : fail('SOURCES.md records the license');
 } catch (err) { fail('leyning player pieces', err.message); }
 
-// 22. The Astro build shell: the whole React app mounts as a single
-// client-only island, the base path is /chumash/, and the emitted dist/ carries
-// the app shell, the built assets, the STaM fonts, and the service worker under
-// the base. Astro is only the host; the React app is unchanged.
-console.log('\n--- 22. Astro build shell + island ---');
+// 22. The Astro build shell, now multi-page: every route is its own real
+// .astro page sharing Layout.astro, each screen mounts as a client:load
+// (never client:only) island, the base path is /chumash/, and the emitted
+// dist/ carries real per-route HTML plus the built assets, the STaM fonts,
+// and the service worker under the base.
+console.log('\n--- 22. Astro build shell (multi-page) + islands ---');
 try {
-  const astroPage = readFileSync(resolve(root, 'src/pages/index.astro'), 'utf8');
-  astroPage.includes("import App from '../App.jsx'")
-    ? pass('index.astro imports the existing App') : fail('index.astro imports the existing App');
-  /<App\s+client:only="react"\s*\/>/.test(astroPage)
-    ? pass('index.astro mounts App as a client:only react island') : fail('index.astro mounts App as a client:only react island');
-  // The pre-paint theme script and the root div are carried over.
-  astroPage.includes('chumash-theme') ? pass('index.astro keeps the pre-paint theme script') : fail('index.astro keeps the pre-paint theme script');
-  astroPage.includes('id="root"') ? pass('index.astro keeps the root mount node') : fail('index.astro keeps the root mount node');
+  const layoutSrc = readFileSync(resolve(root, 'src/layouts/Layout.astro'), 'utf8');
+  layoutSrc.includes('chumash-theme') ? pass('Layout.astro keeps the pre-paint theme script') : fail('Layout.astro keeps the pre-paint theme script');
+  layoutSrc.includes('<slot')
+    ? pass('Layout.astro exposes a slot for each page’s own content') : fail('Layout.astro exposes a slot for each page’s own content');
+
+  // No page anywhere may mount a screen with client:only: every interactive
+  // screen has to hydrate onto real server-rendered markup, not a blank
+  // client-only shell. client:load (or client:visible) is required instead.
+  const pageFiles = [
+    'src/pages/index.astro',
+    'src/pages/browse.astro',
+    'src/pages/haftarah.astro',
+    'src/pages/settings.astro',
+    'src/pages/parsha/[name].astro',
+    'src/pages/404.astro',
+  ];
+  let anyClientOnly = false;
+  for (const relPath of pageFiles) {
+    const src = readFileSync(resolve(root, relPath), 'utf8');
+    if (/client:only/.test(src)) anyClientOnly = true;
+  }
+  anyClientOnly ? fail('no page uses client:only') : pass('no page uses client:only');
 
   const cfg = readFileSync(resolve(root, 'astro.config.mjs'), 'utf8');
   /base:\s*'\/chumash\/'/.test(cfg)
@@ -626,10 +671,11 @@ try {
   /output:\s*'static'/.test(cfg)
     ? pass('astro.config.mjs builds a static site') : fail('astro.config.mjs builds a static site');
 
-  // The emitted build, if present, serves the shell with base-correct assets and
-  // ships the fonts and the service worker under the base. The check is skipped
-  // before the first build so the harness still runs offline; CI runs it after
-  // astro build, where dist/ is present.
+  // The emitted build, if present, serves each route as its own real HTML
+  // file with base-correct assets, and ships the fonts and the service
+  // worker under the base. The check is skipped before the first build so
+  // the harness still runs offline; CI runs it after astro build, where
+  // dist/ is present.
   const distIndex = resolve(root, 'dist/index.html');
   if (existsSync(distIndex)) {
     const html = readFileSync(distIndex, 'utf8');
@@ -641,6 +687,26 @@ try {
       ? pass('dist ships the service worker (sw.js)') : fail('dist ships the service worker (sw.js)');
     existsSync(resolve(root, 'dist/manifest.webmanifest'))
       ? pass('dist ships the PWA manifest') : fail('dist ships the PWA manifest');
+
+    // Every real multi-page route built to its own HTML file, with real,
+    // route-specific content already in the markup (not a blank shell
+    // waiting on client JS).
+    const routeChecks = [
+      { file: 'dist/browse/index.html', mustInclude: 'The five books' },
+      { file: 'dist/settings/index.html', mustInclude: 'Settings' },
+      { file: 'dist/haftarah/index.html', mustInclude: 'Haftarah' },
+      { file: 'dist/parsha/Bereshit/index.html', mustInclude: 'Bereshit' },
+      { file: 'dist/404.html', mustInclude: 'That page is not here' },
+    ];
+    for (const { file, mustInclude } of routeChecks) {
+      const full = resolve(root, file);
+      if (!existsSync(full)) { fail(`${file} exists`); continue; }
+      pass(`${file} exists`);
+      const routeHtml = readFileSync(full, 'utf8');
+      routeHtml.includes(mustInclude)
+        ? pass(`${file} carries real, route-specific content ("${mustInclude}")`)
+        : fail(`${file} carries real, route-specific content ("${mustInclude}")`);
+    }
   } else {
     console.log('SKIP  dist/ checks (no build present; run astro build first)');
   }

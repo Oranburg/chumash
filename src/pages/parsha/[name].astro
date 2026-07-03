@@ -1,0 +1,40 @@
+---
+// The verse-by-verse reading view for one named portion. This replaces the
+// old client-side react-router route "/parsha/:name", which resolved inside
+// the single App.jsx island; that name is now a real static Astro route
+// generated per portion.
+//
+// The site builds with output: 'static' (astro.config.mjs), so every dynamic
+// route needs getStaticPaths to enumerate every page it will emit at build
+// time. The full set of names is closed and known ahead of time from
+// parsha.js: the fifty-four transliterated portion names, plus the seven
+// doubled-portion URLs (e.g. "Vayakhel-Pekudei") that some years read as one
+// combined Shabbat. ReadingScreen already understands a doubled name (it
+// resolves under the first half), so generating both the single and the
+// doubled path here just mirrors what the app already supports.
+//
+// The portion name is known at build time, so this page renders a real,
+// portion-specific <title> and passes the decoded name into ReadingScreen as
+// a prop. ReadingScreen itself still fetches the actual reading (Hebrew text,
+// aliyot, haftarah) from Sefaria at runtime, since that is live text this app
+// must never bake in stale or invented content for.
+import Layout from '../../layouts/Layout.astro';
+import ReadingScreen from '../../screens/ReadingScreen.jsx';
+import { PARSHIYOT, DOUBLED_PAIRS } from '../../lib/parsha.js';
+
+export function getStaticPaths() {
+  const singleNames = PARSHIYOT.map((name) => name);
+  const doubledNames = DOUBLED_PAIRS.map(([first, second]) => `${first}-${second}`);
+  const allNames = [...singleNames, ...doubledNames];
+  return allNames.map((name) => ({
+    params: { name: encodeURIComponent(name) },
+    props: { name },
+  }));
+}
+
+const { name } = Astro.props;
+---
+
+<Layout title={`Chumash: ${name}`} current="other" breadcrumbCurrent={name}>
+  <ReadingScreen name={name} client:load />
+</Layout>

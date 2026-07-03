@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
 import { BookOpen, Library, Minus, Plus, ScrollText } from 'lucide-react';
 import ParshaSummary from '../components/ParshaSummary.jsx';
 import ScrollColumn from '../components/ScrollColumn.jsx';
@@ -12,6 +11,8 @@ import { getThisWeeksParsha, ALIYAH_LABELS } from '../lib/parsha.js';
 import { getParshaText } from '../lib/sefaria.js';
 import { readLocale, writeLocale } from '../lib/locale.js';
 import { BLESSING_BEFORE, BLESSING_AFTER } from '../lib/blessings.js';
+import { useClientState } from '../lib/useClientState.js';
+import { href } from '../lib/routes.js';
 import {
   readProgress,
   writeProgress,
@@ -116,20 +117,35 @@ export default function ThisWeek() {
   // reading each aliyah twice in Hebrew and once in Onkelos.
   const [progress, setProgress] = useState({});
 
+  // Two-pass hydration: this screen mounts as a client:load island on top of
+  // server-rendered (build-time) HTML, so its first client render must match
+  // what Node rendered with no localStorage available. Each of these reads
+  // its real saved value only after mount, through useClientState, rather
+  // than in the useState initializer (see src/lib/useClientState.js).
+
   // The view: the scroll hero by default, the study table on a toggle.
-  const [view, setView] = useState(() =>
-    readSavedChoice(VIEW_STORAGE, ['scroll', 'study'], 'scroll')
+  const [view, setView, viewRestored] = useClientState(
+    () => readSavedChoice(VIEW_STORAGE, ['scroll', 'study'], 'scroll'),
+    'scroll'
   );
   // The scribal tradition for the scroll: Ashkenazi or Sephardi letterforms.
-  const [tradition, setTradition] = useState(() =>
-    readSavedChoice(TRADITION_STORAGE, ['ashkenazi', 'sefardi'], 'ashkenazi')
+  const [tradition, setTradition, traditionRestored] = useClientState(
+    () => readSavedChoice(TRADITION_STORAGE, ['ashkenazi', 'sefardi'], 'ashkenazi'),
+    'ashkenazi'
   );
 
   // Reading controls, mirroring the reading view's patterns.
-  const [showNumbers, setShowNumbers] = useState(() => readSavedBool(NUMBERS_STORAGE, true));
-  const [showTaamim, setShowTaamim] = useState(() => readSavedBool(TAAMIM_STORAGE, false));
-  const [heSize, setHeSize] = useState(() =>
-    readSavedSize(HE_SIZE_STORAGE, DEFAULT_HE_SIZE, HE_MIN, HE_MAX)
+  const [showNumbers, setShowNumbers, showNumbersRestored] = useClientState(
+    () => readSavedBool(NUMBERS_STORAGE, true),
+    true
+  );
+  const [showTaamim, setShowTaamim, showTaamimRestored] = useClientState(
+    () => readSavedBool(TAAMIM_STORAGE, false),
+    false
+  );
+  const [heSize, setHeSize, heSizeRestored] = useClientState(
+    () => readSavedSize(HE_SIZE_STORAGE, DEFAULT_HE_SIZE, HE_MIN, HE_MAX),
+    DEFAULT_HE_SIZE
   );
 
   // Word lookup, wired exactly as the reading view wires it.
@@ -225,22 +241,29 @@ export default function ThisWeek() {
     }
   }, [aliyahRef, loadAliyah]);
 
-  // Persist the reading preferences.
+  // Persist the reading preferences. Each write waits for its own restore
+  // (see useClientState.js) so the pre-restore default never overwrites a
+  // genuinely saved preference.
   useEffect(() => {
+    if (!heSizeRestored) return;
     try { localStorage.setItem(HE_SIZE_STORAGE, String(heSize)); } catch { /* no persistence */ }
-  }, [heSize]);
+  }, [heSize, heSizeRestored]);
   useEffect(() => {
+    if (!showNumbersRestored) return;
     try { localStorage.setItem(NUMBERS_STORAGE, showNumbers ? 'on' : 'off'); } catch { /* no persistence */ }
-  }, [showNumbers]);
+  }, [showNumbers, showNumbersRestored]);
   useEffect(() => {
+    if (!showTaamimRestored) return;
     try { localStorage.setItem(TAAMIM_STORAGE, showTaamim ? 'on' : 'off'); } catch { /* no persistence */ }
-  }, [showTaamim]);
+  }, [showTaamim, showTaamimRestored]);
   useEffect(() => {
+    if (!viewRestored) return;
     try { localStorage.setItem(VIEW_STORAGE, view); } catch { /* no persistence */ }
-  }, [view]);
+  }, [view, viewRestored]);
   useEffect(() => {
+    if (!traditionRestored) return;
     try { localStorage.setItem(TRADITION_STORAGE, tradition); } catch { /* no persistence */ }
-  }, [tradition]);
+  }, [tradition, traditionRestored]);
 
   function changeLocale(loc) {
     writeLocale(loc);
@@ -581,30 +604,30 @@ function OnwardPaths({ parsha }) {
         marginTop: 'var(--space-lg)',
       }}
     >
-      <Link
-        to={`/parsha/${encodeURIComponent(parsha.name)}`}
+      <a
+        href={href(`parsha/${encodeURIComponent(parsha.name)}/`)}
         className="pill-button pill-button--active"
         style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
       >
         <BookOpen size={18} aria-hidden="true" />
         Read the whole portion
-      </Link>
-      <Link
-        to="/haftarah"
+      </a>
+      <a
+        href={href('haftarah/')}
         className="pill-button"
         style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
       >
         <ScrollText size={18} aria-hidden="true" />
         Read the haftarah
-      </Link>
-      <Link
-        to="/browse"
+      </a>
+      <a
+        href={href('browse/')}
         className="pill-button"
         style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
       >
         <Library size={18} aria-hidden="true" />
         Browse the books
-      </Link>
+      </a>
     </div>
   );
 }

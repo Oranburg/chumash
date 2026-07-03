@@ -1,0 +1,13 @@
+---
+// Settings: the BYOK key entry, model choice, and the challenge-level dial.
+// SettingsScreen reads and writes localStorage only (the API key, the model,
+// the base URL, and the challenge level), and every value it stores stays in
+// the browser; see docs/CONSTITUTION.md and the BYOK note in
+// src/lib/providers.js for the privacy contract this page never touches.
+import Layout from '../layouts/Layout.astro';
+import SettingsScreen from '../screens/SettingsScreen.jsx';
+---
+
+<Layout title="Chumash: settings" current="settings" breadcrumbCurrent="Settings">
+  <SettingsScreen client:load />
+</Layout>

@@ -1,0 +1,37 @@
+---
+// The bottom tab bar, server-rendered.
+//
+// Each of the three destinations is a real cross-page <a> to its own static
+// Astro route; there is no client-side router left to intercept the click,
+// so navigating just loads the next page's own server-rendered HTML (the
+// browser's normal, fast, cacheable navigation). The "active" tab is decided
+// here, server-side, from Astro.url.pathname, which is the real requested
+// path for this page, so the correct tab is already marked active in the
+// very first byte of HTML the reader receives (no client JS needed to get
+// this right, unlike the old NavLink-in-a-client-only-island approach).
+import { CalendarDays, Library, Settings as SettingsIcon } from 'lucide-react';
+
+interface Props {
+  current: 'home' | 'browse' | 'settings' | 'other';
+}
+const { current } = Astro.props;
+const base = import.meta.env.BASE_URL;
+
+const NAV_ITEMS = [
+  { key: 'home', href: base, label: 'This week', Icon: CalendarDays },
+  { key: 'browse', href: `${base}browse/`, label: 'Browse', Icon: Library },
+  { key: 'settings', href: `${base}settings/`, label: 'Settings', Icon: SettingsIcon },
+];
+---
+<nav class="bottom-nav" aria-label="Primary">
+  {NAV_ITEMS.map(({ key, href, label, Icon }) => (
+    <a
+      href={href}
+      class={current === key ? 'bottom-nav__item is-active' : 'bottom-nav__item'}
+      aria-current={current === key ? 'page' : undefined}
+    >
+      <Icon size={22} aria-hidden="true" />
+      <span>{label}</span>
+    </a>
+  ))}
+</nav>
