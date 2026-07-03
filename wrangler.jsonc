@@ -6,6 +6,11 @@
     "enabled": true
   },
   "assets": {
-    "directory": "./dist-cf"
+    "directory": "./dist-cf",
+    // Serve the nearest 404.html for any unmatched path instead of Cloudflare's
+    // bare empty-body 404. The multi-page rewrite ships a real 404.html at
+    // dist/404.html (postbuild-cf.mjs copies it to dist-cf/chumash/404.html),
+    // so a bad URL under /chumash/ now gets the app's own not-found page.
+    "not_found_handling": "404-page"
   }
 }
