@@ -23,7 +23,7 @@ export function baseUrlStorageFor(providerId) {
   return `chumash-baseurl-${providerId}`;
 }
 
-export const DEFAULT_MODEL = 'claude-sonnet-4-6';
+export const DEFAULT_MODEL = 'claude-sonnet-5-5';
 
 // Choose the provider for someone who has not explicitly picked one. If any
 // provider already has a saved key, keep it, so an existing paid setup is never
