@@ -12,6 +12,7 @@
 //   node scripts/print-sheet.mjs --ahead 6   next 6 readings
 //   node scripts/print-sheet.mjs --israel    Israel reading
 //   node scripts/print-sheet.mjs --out DIR   write PDFs to DIR (default ~/Downloads/_inbox)
+//   node scripts/print-sheet.mjs --from 2026-10-01   start from a date (for testing)
 //
 // Needs Google Chrome (headless, for PDF printing). Hebcal is CC-BY-4.0 and the
 // sheet prints its attribution.
@@ -59,10 +60,10 @@ async function monthReadings(year, month) {
 // months it needs.
 async function upcoming(count) {
   const found = [];
-  const now = new Date();
-  let y = now.getFullYear();
-  let m = now.getMonth() + 1;
-  const today = now.toISOString().slice(0, 10);
+  const today = arg('--from', new Date().toISOString().slice(0, 10));
+  const [fy, fm] = today.split('-').map(Number);
+  let y = fy;
+  let m = fm;
   for (let guard = 0; found.length < count && guard < 12; guard++) {
     for (const it of await monthReadings(y, m)) {
       if (it.date.slice(0, 10) >= today) found.push(it);
@@ -133,7 +134,7 @@ async function renderReading(item) {
   <p class="kicker">${isYomTov ? 'Yom Tov' : 'Shabbat'} · ${esc(date)}</p>
   <h1>${esc(heading)}</h1>
   <p class="he-title">${esc(item.hebrew || '')}</p>
-  <p class="small">${ISRAEL ? 'Israel' : 'Diaspora'} reading. Torah reading ${esc(cleanRef(item.leyning.torah))}.</p>
+  <p class="small">${ISRAEL ? 'Israel' : 'Diaspora'} reading.${isYomTov ? '' : ` Torah reading ${esc(cleanRef(item.leyning.torah))}.`}</p>
 </header>
 ${parts.join('\n')}
 ${haftarah}
