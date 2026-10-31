@@ -2,7 +2,7 @@
 
 A weekly Torah-portion study companion. Read the parsha at the pace of the week, see the day's aliyah written in real scribal letterforms, open the classical commentators on any verse, track shnayim mikra, chant the reading, and study a verse with an AI havruta that quotes only what it can fetch from Sefaria.
 
-**Live site:** https://oranburg.law/chumash/
+**Live site:** https://chumash.oranburg.law/
 
 ## What it does
 
@@ -25,6 +25,16 @@ A weekly Torah-portion study companion. Read the parsha at the pace of the week,
 - **Sefaria is the only text source.** Every Hebrew verse, every translation, every commentary, and the calendar all come from Sefaria at read time, with `@hebcal/core` computing the parsha of the week locally as an offline fallback and a cross-check. Nothing scriptural is bundled or generated.
 - **The never-invent discipline.** The study partner can quote only the verse it was handed and what a Sefaria tool returns in the same turn. A confident invented Rashi with a citation is treated as the worst possible failure and is prevented by construction. See `docs/AI-PARTNER.md` and `docs/PARTNER-PROMPT.md`.
 - **Bring-your-own-key.** The partner uses a model key the reader supplies and stores locally in Settings. No key ships with the app.
+
+## Printable sheets
+
+For the Shabbat or Yom Tov reading, `scripts/print-sheet.mjs` writes a Letter PDF of the Hebrew (vocalized, with te'amim) and English for each aliyah, the maftir and the haftarah. The calendar and aliyah ranges come from Hebcal; the text comes from Sefaria through the app's own client. It needs Google Chrome.
+
+```sh
+node scripts/print-sheet.mjs            # the next 3 readings into ~/Downloads/_inbox
+node scripts/print-sheet.mjs --ahead 6 # the next 6
+node scripts/print-sheet.mjs --israel  # the Israel reading
+```
 
 ## Run it
 

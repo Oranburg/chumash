@@ -2,7 +2,7 @@
 
 A weekly Torah-portion study companion. Read the parsha at the pace of the week, see the day's aliyah written in real scribal letterforms, open the classical commentators on any verse, track shnayim mikra, chant the reading, and study a verse with an AI havruta that quotes only what it can fetch from Sefaria.
 
-**Live site:** https://oranburg.law/chumash/
+**Live site:** https://chumash.oranburg.law/
 
 ## What it does
 
